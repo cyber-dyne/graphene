@@ -1,0 +1,133 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../../app-localize-behavior/app-localize-behavior.html"/>
+<link rel="import" href="graphene-api.html"/>
+<link rel="import" href="graphene-browser-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        /** @polymerBehavior */
+        Graphene.LocalizeBehaviorImpl = {
+            properties: {
+                // http://formatjs.io/guides/message-syntax/#custom-formats
+                useKeyIfMissing: {
+                    value: true,
+                },
+
+                language: {
+                    // value: 'en',
+                },
+
+                messages: {
+                    type: Object,
+                    value: () => ({}),
+                },
+
+                msg: {
+                    type: Function,
+                    computed: '_msgComputer(language, resources, formats)'
+                },
+            },
+
+            observers: [
+                '_initObserver(messages, language)',
+                '_messagesObserver(messages.*)',
+            ],
+
+            ready() {
+                const params       = Graphene.Browser.queryParams
+                const defaultLang  = 'en'
+                const manifestLang = Graphene.LANG
+                const paramLang    = params.lang
+                // The runtime query parameter has the maximum priority.
+                // User can request to change the language.
+                const choices      = [ paramLang, manifestLang, defaultLang ]
+                // Choices ordered from highest to lowest priority.
+                const lang         = choices.find(lang => !! lang)
+                // undefined, null and '' are false matches.
+
+                this.language = lang
+            },
+
+            // attached() {
+            //     const url = this.resolveUrl('messages.json')
+            //     this.loadResources(url)
+            // },
+
+            _initObserver(messages, language) {
+                if (messages[language]) {
+                    // User has defined the messages object for the default locale.
+                    // We have nothing to do.
+                    return
+                }
+
+                // It must not be empty, otherwise the __computeLocalize
+                // implementation check fails and the msg function returns nothing.
+                this.set(['messages', language], {})
+            },
+
+            _messagesObserver(messages) {
+                const resources = {}
+
+                for (const locale in messages.base) {
+                    const strings = messages.base[locale]
+
+                    resources[locale] = {}
+
+                    for (const key in strings) {
+                        const val = strings[key]
+
+                        resources[locale][key] = val
+                    }
+                }
+
+                this.resources = resources
+            },
+
+            _msgComputer(language, resources, formats) {
+                // We translate the Polymer syntax
+                //     this.localize('id', 'key1', 'val1', 'key2', 'val2')
+                // for the string
+                //     'message {key1} {key2}'
+                // into a more concise and standard syntax
+                //     this.msg('id', 'val1', 'val2')
+                // for the string
+                //     'message {0} {1}'.
+
+                // 'Polymer.AppLocalizeBehavior.localize' is a Polymer
+                // computed property of type Function, computed by
+                // 'Polymer.AppLocalizeBehavior.__computeLocalize.'
+                const localizeComputer = Polymer.AppLocalizeBehavior.__computeLocalize
+                // So we first call '__computeLocalize' to get the actual function
+                // implementation.
+                const localizeImpl     = localizeComputer.call(this, language, resources, formats)
+
+                // This is our wrapper function for the Polymer implementation.
+                return (str, ...params) => {
+                    const args = [ str ]
+
+                    params.forEach((val, i) => {
+                        const key = String(i)
+
+                        args.push(key)
+                        args.push(val)
+                    })
+
+                    // Polymer.AppLocalizeBehavior.localize('id', '0', 'val0', '1', 'val1')
+                    return localizeImpl.apply(this, args)
+                }
+            }
+        }
+
+        /** @polymerBehavior */
+        Graphene.LocalizeBehavior = [ Polymer.AppLocalizeBehavior, Graphene.LocalizeBehaviorImpl ]
+    })()
+    // ]]>
+</script>

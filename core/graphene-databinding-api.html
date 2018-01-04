@@ -1,0 +1,363 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../lib/lodash.html"/>
+<link rel="import" href="graphene-api.html"/>
+<link rel="import" href="graphene-fn-api.html"/>
+<link rel="import" href="graphene-logger-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        Graphene.DataBinding = function (nodes, properties, strategy, options) {
+            const Strategy = strategy || Graphene.BreadthFirstDataBinding
+
+            return Strategy(nodes, properties, options)
+        }
+
+        Graphene.BreadthFirstDataBindingClass = class
+        {
+            constructor(nodes=[], properties=[])
+            {
+                this._monitor        = this._constructMonitor(nodes, properties)
+                this._nodes          = nodes
+                this._properties     = properties
+                this._pendingChanges = []
+                this._partialChanges = []
+                this._history        = []
+
+                this._monitor.start()
+            }
+
+            _constructMonitor(...args)
+            {
+                const monitor = Graphene.NodesPropertiesMonitor(...args)
+
+                monitor.observe(this)
+
+                return monitor
+            }
+
+            nodePropertyDidChange(path, value, node)
+            {
+                const change     = [ path, value ]
+
+                const changes    = this._pendingChanges.concat(this._partialChanges)
+                const propagated = changes.find(propagatedChange => Lodash.isEqual(change, propagatedChange))
+
+                if (propagated !== undefined) {
+                    // Change already propagated. We can skip it.
+                    return
+                }
+
+                this._pendingChanges.push(change)
+
+                if (this.lock) {
+                    // There is already a propagation in progress. We have
+                    // nothing to do.
+                    return
+                }
+
+                // There is no propagation in progress so we can immediately
+                // start consuming changes.
+                this._applyChanges()
+            }
+
+            // _initNodes()
+            // {
+            //     // First, we init the node property with current value.
+            //     // We must not share the same objects/arrays otherwise it is
+            //     // impossible to understand when the value has been changed
+            //     // on this actual node.
+            //     node[property] = Lodash.cloneDeep(newValue)
+            //     // Second, we start listening for property's change event.
+            // }
+
+            _applyChanges()
+            {
+                this.lock = true
+
+                const queue = this._pendingChanges
+
+                while (true) {
+                    const change = queue.shift()
+
+                    if (change === undefined) {
+                        break
+                    }
+
+                    this._propagateChange(...change)
+                }
+
+                this.lock = false
+
+                return this
+            }
+
+            _propagateChange(path, value)
+            {
+                const nodes = this._nodes
+
+                nodes.forEach(node => this._propagateChangeToNode(node, path, value))
+
+                return this
+            }
+
+            _propagateChangeToNode(node, path, value)
+            {
+                const nodeValue = node.get(path)
+
+                if (value === nodeValue) {
+                    // The node has an identical value (maybe because the
+                    // change has been triggered by it) so we avoid notifying
+                    // it preventing possible infinite recursions.
+                    return
+                }
+
+                if (Lodash.isEqual(value, nodeValue)) {
+                    return
+                }
+
+                // We must not share the same objects/arrays otherwise it is
+                // impossible to understand when the value has been changed
+                // on this actual node.
+                const newValue = Lodash.cloneDeep(value)
+
+                // Settings a property on a node triggers an event back of the
+                // same type resulting in a re-execuction of this method on every
+                // monitored node
+                const change = [ path, newValue ]
+                this._partialChanges.push(change)
+
+                node.set(path, newValue)
+                // node.set(path, newValue, node)
+
+                const changeIndex = this._partialChanges.indexOf(change)
+                this._partialChanges.splice(changeIndex, 1)
+
+                const setValue = node.get(path)
+
+                if (setValue === undefined) {
+                    const msg = `Graphene.BreadthFirstDataBindingClass: path '${path}' not set.`
+
+                    Graphene.Logger.debug(msg)
+                }
+
+                return this
+            }
+        }
+
+        Graphene.DepthFirstDataBindingClass = class
+        {
+            constructor(nodes=[], properties=[])
+            {
+                this._monitor        = this._constructMonitor(nodes, properties)
+                this._nodes          = nodes
+                this._properties     = properties
+                this._partialChanges = []
+
+                this._monitor.start()
+            }
+
+            _constructMonitor(...args)
+            {
+                const monitor = Graphene.NodesPropertiesMonitor(...args)
+
+                monitor.observe(this)
+
+                return monitor
+            }
+
+            nodePropertyDidChange(path, value, node)
+            {
+                const change  = [ node, path, value ]
+                const changes = this._partialChanges
+                const partial = changes.find(partialChange => Lodash.isEqual(change, partialChange))
+
+                if (partial !== undefined) {
+                    // Change already propagated. We can skip it.
+                    return
+                }
+
+                this._propagateChange(path, value)
+            }
+
+            // _initNodes()
+            // {
+            //     // First, we init the node property with current value.
+            //     // We must not share the same objects/arrays otherwise it is
+            //     // impossible to understand when the value has been changed
+            //     // on this actual node.
+            //     node[property] = Lodash.cloneDeep(newValue)
+            //     // Second, we start listening for property's change event.
+            // }
+
+            _propagateChange(path, value)
+            {
+                const nodes = this._nodes
+
+                nodes.forEach(node => this._propagateChangeToNode(node, path, value))
+
+                return this
+            }
+
+            _propagateChangeToNode(node, path, value)
+            {
+                const nodeValue = node.get(path)
+
+                if (value === nodeValue) {
+                    // The node has an identical value (maybe because the
+                    // change has been triggered by it) so we avoid notifying
+                    // it preventing possible infinite recursions.
+                    return
+                }
+
+                if (Lodash.isEqual(value, nodeValue)) {
+                    return
+                }
+
+                // We must not share the same objects/arrays otherwise it is
+                // impossible to understand when the value has been changed
+                // on this actual node.
+                const newValue = Lodash.cloneDeep(value)
+
+                // Settings a property on a node triggers an event back of the
+                // same type resulting in a re-execuction of this method on every
+                // monitored node
+                const change = [ node, path, newValue ]
+                this._partialChanges.push(change)
+
+                node.set(path, newValue)
+                // node.set(path, newValue, node)
+
+                const changeIndex = this._partialChanges.indexOf(change)
+                this._partialChanges.splice(changeIndex, 1)
+
+                const setValue = node.get(path)
+
+                if (setValue === undefined) {
+                    const msg = `Graphene.DepthFirstDataBindingClass: path '${path}' not set.`
+
+                    Graphene.Logger.debug(msg)
+                }
+
+                return this
+            }
+        }
+
+        Graphene.NodesPropertiesMonitorClass = class
+        {
+            constructor(nodes=[], properties=[])
+            {
+                this._nodes            = nodes
+                this._properties       = properties
+                this._observers        = []
+                this._propertyListener = this._propertyListener.bind(this)
+            }
+
+            start()
+            {
+                this._nodes.forEach(this._monitorNode, this)
+
+                return this
+            }
+
+            observe(observer)
+            {
+                this._observers.push(observer)
+
+                return this
+            }
+
+            _monitorNode(node)
+            {
+                const strategy = this._monitorNodeWithEventListener.bind(this)
+
+                this._properties.forEach(prop => strategy(node, prop))
+
+                return this
+            }
+
+            _monitorNodeWithEventListener(node, property)
+            {
+                const dashProperty = Polymer.CaseMap.camelToDashCase(property)
+                const event        = `${dashProperty}-changed`
+                const customEvent  = new CustomEvent(event)
+
+                // this._propertyListener is already bound to this.
+                node.addEventListener(customEvent, this._propertyListener)
+
+                return this
+            }
+
+            // _monitorNodeWithComplexObserver(node, property)
+            // {
+            //     const [ observer, name, impl ] = this._observerForProperty(property)
+            //
+            //     node[name] = impl
+            //
+            //     // Polymer internal call to programmatically observe a property.
+            //     node._addComplexObserverEffect(observer)
+            //
+            //     return this
+            // }
+
+            // _observerForProperty(property)
+            // {
+            //     const random = Math.floor(Math.random() * 99 + 1)
+            //     const name   = `__propertyObserver_for_${property}__${random}`
+            //     return [
+            //         `${name}(${property}.*)`,
+            //         name,
+            //         this._propertyObserver
+            //     ]
+            // }
+
+            // _propertyObserver(change)
+            // {
+            //     // One of the observed properties on a node have changed.
+            //     const path  = change.path
+            //     const value = change.value
+            //
+            //     this._propagateChange(path, value)
+            // }
+
+            _propertyListener(event)
+            {
+                // One of the observed properties on a node have changed.
+                const detail     = event.detail
+                // .path is undefined in case of an assignment relative to a
+                // root property. Example: this.aProp = ...
+                // Otherwise it is something like: {aProp}.#{key}.{aSubProp}
+                const node       = Polymer.dom(event).rootTarget    // Who fired the event.
+                const path       = detail.path
+                const value      = detail.value
+                const type       = event.type           // '{prop}-{name}-changed'
+                const property   = type.split('-').slice(0, -1).join('') // Everything except '-changed'.
+                // From '{a}-{prop}-{name}' to 'aPropName'.
+                const camelProp  = Polymer.CaseMap.dashToCamelCase(property)
+                const actualPath = path || camelProp    // Whether the path is undefined we must use the root property.
+
+                this._informObservers(actualPath, value, node)
+            }
+
+            _informObservers(path, value, node)
+            {
+                this._observers.forEach(observer => observer.nodePropertyDidChange(path, value, node))
+
+                return this
+            }
+        }
+
+        const newer                      = Graphene.fn.newer
+        Graphene.BreadthFirstDataBinding = newer(Graphene.BreadthFirstDataBindingClass)
+        Graphene.DepthFirstDataBinding   = newer(Graphene.DepthFirstDataBindingClass)
+        Graphene.NodesPropertiesMonitor  = newer(Graphene.NodesPropertiesMonitorClass)
+    })()
+    // ]]>
+</script>

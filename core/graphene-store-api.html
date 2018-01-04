@@ -1,0 +1,620 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../lib/lodash.html"/>
+<link rel="import" href="graphene-api.html"/>
+<link rel="import" href="graphene-fn-api.html"/>
+<link rel="import" href="graphene-logger-api.html"/>
+<link rel="import" href="graphene-map-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        const on = Graphene.fn.invokeOn
+
+        /** @polymerBehavior */
+        Graphene.StoreClass = class
+        {
+            constructor(config={})
+            {
+                const {
+                    state,
+                    container,
+                    maxHistory,
+                    autoSave,
+                } = config
+
+                // 1) We init the internal data structures.
+                this.queue      = []
+                this.history    = []
+                this.future     = []
+                this.plugins    = this._newPluginsProxy()
+                this.observers  = ArrayCollection()
+                this.mutators   = ObjectCollection()
+                this.reducers   = ObjectCollection()
+                this.actions    = ObjectCollection()
+                this.getters    = this._newGettersProxy()
+                this.messages   = {
+                    commit: 'Committing state with',
+                    reduce: 'Reducing state with',
+                    mutate: 'Mutating state with',
+                    action: 'Dispatching action',
+                }
+
+                const apis = [ 'commit', 'reduce', 'mutate', 'dispatch', 'require', 'save', 'back', 'forward' ]
+                // The public APIs are bound to this because they can be used in
+                // destructured assignments or as closures.
+                apis.forEach(name => this[name] = this[name].bind(this))
+
+                // 2) After the init phase, we import the user provided configuration.
+                this.container  = container
+                this.maxHistory = maxHistory
+                this.autoSave   = autoSave
+
+                // 3) At the end, when everything is ready, we set the initial state.
+                this.state      = state
+            }
+
+            commit(...args)
+            {
+                // First argument is a reducer/mutator id string/symbol.
+                return this._scheduleTask('commit', ...args)
+            }
+
+            reduce(...args)
+            {
+                // First argument is a reducer function.
+                return this._scheduleTask('reduce', ...args)
+            }
+
+            mutate(...args)
+            {
+                // First argument is a mutator function.
+                return this._scheduleTask('mutate', ...args)
+            }
+
+            dispatch(...args)
+            {
+                // First argument is an action function or id string/symbol.
+                const promise = new Promise((resolve, reject) => {
+                    this._scheduleTask('action', [ resolve, reject ], ...args)
+                })
+
+                return promise
+            }
+
+            require(...args)
+            {
+                const container = this.container
+
+                if (container === undefined) {
+                    return
+                }
+
+                const get = Graphene.Store.get
+                const val = container[get](...args)
+
+                return val
+            }
+
+            get get()
+            {
+                return this.getters.items
+            }
+
+            get state()
+            {
+                return this._state
+            }
+
+            set state(newState)
+            {
+                if (this.state === newState) {
+                    // We have nothing to do.
+                    return
+                }
+
+                this.autoSave && this.save()
+
+                this._setState(newState)
+            }
+
+            save()
+            {
+                this._pushWithLimit(this.history, this.state)
+
+                return this
+            }
+
+            back()
+            {
+                // 1) We pop last-pushed state from the history.
+                const prevState = this.history.pop()
+
+                if (prevState === undefined) {
+                    // History was empty. We have nothing to do.
+                    return
+                }
+
+                // 2) We store the popped state for the .forward() method.
+                this._pushWithLimit(this.future, prevState)
+
+                this._setState(prevState, 'back')
+
+                return this.state
+            }
+
+            forward()
+            {
+                // 1) We pop last-pushed state from the future.
+                const futureState = this.future.pop()
+
+                if (futureState === undefined) {
+                    // Future was empty. We have nothing to do.
+                    return
+                }
+
+                const prevState = this.state
+
+                // 2) We store current state in the history for the .back() method.
+                this.history.push(this.state)
+
+                this._setState(futureState, 'forward')
+
+                return this.state
+            }
+
+            _setState(newState, event='state')
+            {
+                this._state = newState
+
+                // // We reset this.future, meaning that if we do .back() and then
+                // // we reduce the state, we loose the possibility to do .forward().
+                // this.future = []
+
+                // 1) We notify the state change listeners.
+                this._notifyStateChange(newState)
+                // 2) We notify the event.
+                this._notifyEvent(event, newState)
+            }
+
+            _pushWithLimit(queue, item)
+            {
+                queue.push(item)
+
+                const shiftedItem = this._gcQueue(queue, this.maxHistory)
+
+                return shiftedItem
+            }
+
+            _gcQueue(queue, maxSize)
+            {
+                const size = queue.length
+
+                if (size > maxSize) {
+                    // We remove first item from the queue, returning it.
+                    return queue.shift()
+                }
+
+                // undefined otherwise.
+            }
+
+            _scheduleTask(type, ...args)
+            {
+                this.queue.push({ type: type, args: args })
+
+                if (this.lock) {
+                    // There is already one reduction in progress. We have
+                    // nothing to do so we can return.
+                    return this
+                }
+
+                // No consuming is in progress. We can start consuming the queue.
+                this._consumeQueue()
+
+                return this
+            }
+
+            _consumeQueue()
+            {
+                if (this.queue.length === 0) {
+                    // Queue is empty, meaning there are no more pending
+                    // reductions to process. We can return.
+                    this.lock = false
+
+                    return
+                }
+
+                // There is at least one pending task in the queue.
+                // Let's execute the task.
+                this.lock = true
+
+                const { type, args } = this.queue[0]
+
+                const executeTask = this._executeTask.bind(this)
+                const result      = Lodash.attempt(executeTask, type, ...args)
+
+                if (Lodash.isError(result)) {
+                    Graphene.Logger.error(result)
+                }
+
+                // We remove the completed tasks continuing processing the queue.
+                this.queue.shift()
+
+                // We read the queue looking for pending tasks.
+                this._consumeQueue()
+            }
+
+            _executeTask(type, ...args)
+            {
+                Graphene.Logger.debug('Graphene.Store:', this.messages[type], args)
+
+                const handler = `_${type}Handler`
+
+                this[handler](...args)
+
+                this._notifyEvent(type, ...args)
+
+                return this
+            }
+
+            _fnForId(id, collection)
+            {
+                return Lodash.isFunction(id) ? id : collection.items[id]
+            }
+
+            _commitHandler(id, ...args)
+            {
+                const types = [
+                    { collection: this.reducers, type: 'reduce' },
+                    { collection: this.mutators, type: 'mutate' },
+                ]
+
+                const found = types.some(spec => {
+                    const { collection, type } = spec
+                    const fn = this._fnForId(id, collection)
+
+                    if (! fn) {
+                        return false
+                    }
+
+                    const handler = `_${type}Handler`
+
+                    this[handler](id, ...args)
+
+                    return true
+                })
+
+                if (! found) {
+                    // String is used to convert a Symbol into String, otherwise
+                    // 'TypeError: Cannot convert a Symbol value to a string'.
+                    throw `Graphene.Store: Commit handler '${String(id)}' not found.`
+                }
+
+                return this
+            }
+
+            _reduceHandler(id, ...args)
+            {
+                const fn        = this._fnForId(id, this.reducers)
+                const prevState = this.state
+                const nextState = fn(prevState, ...args)
+
+                this.state = nextState
+
+                return this
+            }
+
+            _mutateHandler(id, ...args)
+            {
+                const fn      = this._fnForId(id, this.mutators)
+                let newState  = this.state
+                const changes = fn(newState, ...args)
+
+                for (const change in changes) {
+                    const value = changes[change]
+
+                    const changePath = change
+                        .replace(/\[/g, '.[')               // a[0] to a.[0]
+                        .replace(/^\./, '')                 // .[0] to [0]
+
+                    newState = this._mutateShallow(newState, change, value)
+
+                    // In case the change path doesn't exist the shallow
+                    // mutation doesn't create it. This ensures that the deep
+                    // path is created on the new state without mutating the
+                    // original state.
+                    Lodash.set(newState, change, value)
+                }
+
+                this.state = newState
+
+                return this
+            }
+
+            _mutateShallow(srcState, changePath, value)
+            {
+                const parts = changePath.split('.')     // Of a.b.c     Of [0].b.c
+                const head  = parts[0]                  // a            [0]
+                const tail  = parts.slice(1).join('.')  // b.c          b.c
+
+                if (head.length === 0) {
+                    // head is an empty string because parts = [ '' ] = ''.split('.').
+                    // We reached the bottom of the change path, time to return.
+                    return value
+                }
+
+                const destState = Lodash.clone(srcState)        // Shallow clone of Array/Object.
+                const srcValue  = Lodash.get(srcState, head)    // One level down in the src state.
+                const destValue = this._mutateShallow(srcValue, tail, value)
+
+                // We use Lodash to set on destState head which can be:
+                // - '[n]' for Arrays
+                // - 'prop' for Objects
+                Lodash.set(destState, head, destValue)
+
+                return destState
+            }
+
+            _actionHandler(promiseCallbacks, id, ...args)
+            {
+                const [ resolvePromise, _ ] = promiseCallbacks
+                const fn = this._fnForId(id, this.actions)
+
+                // An action needs the store as first argument to be able to
+                // dispatch other actions or mutations/reductions.
+                const promise = fn(this, ...args)
+
+                // We resolve the .dispatch() returned promise with the return
+                // value of the action. It can be anything: a scalar, a Promise
+                // or undefined.
+                resolvePromise(promise)
+
+                return this
+            }
+
+            _newPluginsProxy()
+            {
+                const collection = ArrayCollection()
+
+                return {
+                    add: (...plugins) => {
+                        plugins.forEach(plugin => {
+                            const index = collection.items.indexOf(plugin)
+
+                            if (index > -1) {
+                                // Plugin already registered.
+                                return
+                            }
+
+                            collection.add(plugin)
+
+                            this._processPluginImports(plugin, 'add')
+
+                            const iface = [ Graphene.Store.start, 'start' ]
+
+                            // The start/stop interface can be handled by one
+                            // callback only. To distinguish them we pass
+                            // an event-like argument.
+                            on(plugin).invoke(iface, this, 'plugin-loaded')
+                        })
+
+                        return this
+                    },
+
+                    remove: (...plugins) => {
+                        plugins.forEach(plugin => {
+                            const index = collection.items.indexOf(plugin)
+
+                            if (index === -1) {
+                                // Plugin already unregistered.
+                                return
+                            }
+
+                            this._processPluginImports(plugin, 'remove')
+
+                            collection.remove(plugin)
+
+                            const iface = [ Graphene.Store.stop, 'stop' ]
+
+                            // The start/stop interface can be handled by one
+                            // callback only. To distinguish them we pass
+                            // an event-like argument.
+                            on(plugin).invoke(iface, this, 'plugin-unloaded')
+                        })
+
+                        return this
+                    },
+
+                    get items() {
+                        return collection.items
+                    },
+                }
+            }
+
+            _newGettersProxy()
+            {
+                const collection = ObjectCollection()
+
+                return {
+                    add: (...objs) => {
+                        const props = []
+
+                        objs.forEach(obj => {
+                            const props = Graphene.fn.getOwnPropertyNamesAndSymbols(obj)
+
+                            props.forEach(prop => {
+                                const getter = obj[prop]
+
+                                // Don't do
+                                // const state = this.state
+                                // otherwise the getter receives an old state value.
+                                collection.items[prop] = (...args) => {
+                                    return getter(this.state, this.get, ...args)
+                                }
+                            })
+                        })
+
+                        return this
+                    },
+
+                    remove: (...objs) => {
+                        collection.remove(...objs)
+                        // Don't return the collection.remove() return values,
+                        // which of course is different from this.
+
+                        return this
+                    },
+
+                    get items() {
+                        return collection.items
+                    },
+                }
+            }
+
+            _processPluginImports(plugin, action)
+            {
+                const imports = [ 'mutators', 'reducers', 'actions', 'getters', 'plugins' ]
+
+                imports.forEach(type => {
+                    // The getter interface for this collection type.
+                    const getter = Graphene.Store[type]
+
+                    if (! plugin[getter]) {
+                        // The plugin doesn't implement the get interface for
+                        // this type.
+                        return
+                    }
+
+                    const collection = this[type]
+                    const items      = plugin[getter]
+                    const args       = Array.isArray(items) ? items : [ items ]
+                    // An Object items is wrapped inside an array to be spread
+                    // as argument. An Array items is simply spread as argument.
+
+                    collection[action](...args)
+                })
+
+                return this
+            }
+
+            get listeners()
+            {
+                const plugins   = this.plugins.items
+                const observers = this.observers.items
+                const targets   = plugins.concat(observers)
+
+                return targets
+            }
+
+            _notifyEvent(...args)
+            {
+                const listeners = this.listeners
+                const notify    = [ Graphene.Store.notify, 'notify' ]
+
+                // We notify the listener with these arguments:
+                // 1) the store instance
+                // 2) the change type which can be 'commit', 'action', 'back', 'forward', 'state'.
+                // For 'commit' and 'action'
+                // 3) the id, which can be a String, a Symbol or a Function.
+                // 4) all the other user supplied arguments.
+                on(listeners).invoke(notify, this, ...args)
+
+                return this
+            }
+
+            _notifyStateChange(newState)
+            {
+                const listeners      = this.listeners
+                const stateDidChange = [ Graphene.Store.stateDidChange, 'stateDidChange' ]
+
+                for (const listener of listeners) {
+                    if (newState !== this.state) {
+                        // Whether the state has changed during the notification
+                        // — due to a listener who called .commit() in turn —
+                        // we abort current notification.
+                        return false
+                    }
+
+                    // Listeners can call .commit() in turn, which can change the state.
+                    // For this reason we must pass always the last state (this.state),
+                    // not 'newState' or 'const curState = this.state'.
+                    on(listener).invoke(stateDidChange, this.state)
+                }
+
+                return true
+            }
+        }
+
+        Graphene.Store = Graphene.fn.newer(Graphene.StoreClass)
+
+        Graphene.Store.get            = Symbol('Graphene.Store.get()')
+        Graphene.Store.notify         = Symbol('Graphene.Store.notify()')
+        Graphene.Store.stateDidChange = Symbol('Graphene.Store.stateDidChange()')
+        Graphene.Store.start          = Symbol('Graphene.Store.start()')
+        Graphene.Store.stop           = Symbol('Graphene.Store.stop()')
+        Graphene.Store.mutators       = Symbol('Graphene.Store.mutators')
+        Graphene.Store.reducers       = Symbol('Graphene.Store.reducers')
+        Graphene.Store.actions        = Symbol('Graphene.Store.actions')
+        Graphene.Store.getters        = Symbol('Graphene.Store.getters')
+        Graphene.Store.plugins        = Symbol('Graphene.Store.plugins')
+
+        const ArrayCollection = function (initial) {
+            if (! (this instanceof ArrayCollection)) {
+                return new ArrayCollection(initial)
+            }
+
+            this.items = initial || []
+        }
+
+        ArrayCollection.prototype.add = function (...items) {
+            items.forEach(i => this.items.push(i))
+
+            return this
+        }
+
+        ArrayCollection.prototype.remove = function (...items) {
+            items.forEach(i => {
+                const index = this.items.indexOf(i)
+
+                if (index < 0) {
+                    return
+                }
+
+                this.items.splice(index, 1)
+            })
+
+            return this
+        }
+
+        const ObjectCollection = function (initial) {
+            if (! (this instanceof ObjectCollection)) {
+                return new ObjectCollection(initial)
+            }
+
+            this.items = initial || {}
+        }
+
+        ObjectCollection.prototype.add = function (...objs) {
+            Object.assign(this.items, ...objs)
+
+            return this
+        }
+
+        ObjectCollection.prototype.remove = function (...objs) {
+            objs.forEach(o => {
+                const props = Graphene.fn.getOwnPropertyNamesAndSymbols(o)
+
+                props.forEach(prop => delete this.items[prop])
+            })
+
+            return this
+        }
+    })()
+    // ]]>
+</script>

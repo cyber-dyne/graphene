@@ -1,0 +1,190 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../../paper-icon-button/paper-icon-button.html"/>
+<link rel="import" href="../../polymer/polymer.html"/>
+<link rel="import" href="../lib/chart.html"/>
+<link rel="import" href="../ui/graphene-style.html"/>
+
+<dom-module id="graphene-chart">
+    <template>
+        <style include="graphene-style"></style>
+
+        <style>
+            :host {
+                display: block;
+                width:   100%;
+                height:  100%;
+                position: relative;
+                @apply --graphene-chart;
+            }
+
+            #ElasticBox {
+                /*
+                * The canvas is styled by the ChartJS library to be absolute
+                * positioned. We need a parent node to be relative allowing
+                * the absolute positioning.
+                */
+                position: relative;
+                width:    100%;
+                height:   100%;
+            }
+
+            #Actions {
+                position: absolute;
+
+                /*top: var(--graphene-gutter-s);*/
+                right: var(--graphene-gutter-m);
+
+                z-index: 1;
+
+                display: flex;
+                padding: var(--graphene-gutter-xs) var(--graphene-gutter-s);
+                border-radius: 4px;
+
+                opacity: 0;
+                color: var(--paper-blue-500);
+                background: white;
+                box-shadow: 0px 2px 3px 0px #d6d6d6;
+
+                transition: opacity .3s, box-shadow;
+            }
+
+            #Actions:hover {
+                box-shadow: 0px 3px 5px 0px #b5b5b5;
+            }
+
+            :host(:hover) #Actions {
+                opacity: 1;
+            }
+
+            #Actions > * {
+                cursor: pointer;
+            }
+
+            paper-icon-button {
+                width:  24px;
+                height: 24px;
+                padding: 0;
+            }
+        </style>
+
+        <div id="Actions">
+            <a id="Download" title="Save image" download="">
+                <paper-icon-button icon="icons:file-download" noink></paper-icon-button>
+            </a>
+        </div>
+
+        <!--
+        | The canvas must be enclosed inside position:relative parent allowing
+        | the canvas to be absolute positioned.
+        | Don't put any content before or after the canvas, or ChartJS will break.
+        -->
+        <div id="ElasticBox">
+            <canvas id="Chart"></canvas>
+        </div>
+    </template>
+
+    <script>
+        // <![CDATA[
+        ;(function(undefined) {
+            'use strict'
+
+            Polymer({
+                is: 'graphene-chart',
+
+                properties: {
+                    type: {
+                        type: String,
+                    },
+
+                    data: {
+                        type: Object,
+                        // ChartJS data structure.
+                    },
+
+                    options: {
+                        type: Object,
+                        // ChartJS options structure.
+                    },
+
+                    chart: {
+                        type: Object,
+                        computed: '_chartComputer(type, data, options, isAttached)',
+                        // CharJS instance.
+                    },
+
+                    isAttached: {
+                        type: Boolean,
+                    },
+                },
+
+                listeners: {
+                    'Download.tap': '_downloadTapListener',
+                },
+
+                //// Lifecycle callbacks. //////////////////////////////////////
+
+                ready() {
+                    const root      = Polymer.dom(this.root)
+                    const style     = Chart.platform._style     // ChartJS private API.
+                    const styleNode = style.cloneNode(true)
+
+                    // Workaround to fix not working responsive feature of ChartJS
+                    // under Shadow DOM (since ChartJS 2.7. 2.6 has not this issue).
+                    // https://github.com/chartjs/Chart.js/issues/4912
+                    root.appendChild(styleNode)
+                },
+
+                attached() {
+                    this.isAttached = true
+                },
+
+                //// Computers. ////////////////////////////////////////////////
+
+                _chartComputer(type, data, options, isAttached) {
+                    if (Lodash.some(arguments, Lodash.isNil)) {
+                        return
+                    }
+
+                    if (isAttached !== true) {
+                        // We must be ready to access the Local DOM.
+                        // We must be attached or CharJS will not work.
+                        return
+                    }
+
+                    // TODO: destroy previous chart in case of chart type change.
+                    // this.chart && this.chart.destroy()
+
+                    const context = this.$.Chart
+
+                    const chart = new Chart(context, {
+                        type:    type,
+                        data:    data,
+                        options: options,
+                    })
+
+                    return chart
+                },
+
+                //// Listeners. ////////////////////////////////////////////////
+
+                _downloadTapListener() {
+                    const image = this.$.Chart.toDataURL()
+                    const name  = this.data.type.toLowerCase() + '_' + this.data.name.toLowerCase() + '.png'
+
+                    this.$.Download.setAttribute('download', name)
+                    this.$.Download.setAttribute('href',     image)
+                },
+
+                //// Public APIs. //////////////////////////////////////////////
+
+                //// Internal APIs. ////////////////////////////////////////////
+            })
+        })()
+        // ]]>
+    </script>
+</dom-module>

@@ -1,0 +1,112 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../core/graphene-api.html"/>
+<link rel="import" href="../core/graphene-elementfactory-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        /** @polymerBehavior */
+        Graphene.ViewMainbarBehavior = {
+            properties: {
+                mainbar: {
+                    type: Object,
+                },
+
+                mainbarNode: {
+                    type: Object,
+                },
+            },
+
+            observers: [
+                '_mainbarViewLifecycleObserver(viewLifecycle)',
+            ],
+
+            //// Lifecycle callbacks. //////////////////////////////////////
+
+            ready() {
+                this._configureMainbarProperty()
+            },
+
+            attached() {
+                // We can't fire events while the element is not attached.
+                const element = this.mainbar.element
+                const factory = Graphene.ElementFactory.withContext(this)
+                const promise = factory.create(element)
+
+                promise.then(node => {
+                    this.mainbarNode = node
+
+                    const id         = this.mainbar.id
+                    const delegate   = this.mainbar.delegate
+
+                    node.setAttribute('id', id)
+                    node.delegate = delegate
+                    // Every toolbar must have a delegate to dispatch its default
+                    // actions/events like the close action/event. By default the
+                    // delegate of these actions/events is toolbar himself; but when
+                    // the toolbar is inside a mainbar which is not a child of the
+                    // element owning the mainbar (the actual owner is the one
+                    // implementing this behavior), the toolbar's actions/events
+                    // must be redirected to the real parent.
+                    // Said that, user can specify a custom delegate if he needs but
+                    // by default the delegate is the element implementing this
+                    // behavior.
+
+                    // We publish the new mainbar.
+                    this.fire('graphene-mainbar-created', node, { bubbles: true })
+                })
+            },
+
+            //// Computers. ////////////////////////////////////////////////
+
+            //// Observers. ////////////////////////////////////////////////
+
+            _mainbarViewLifecycleObserver(lifecycle) {
+                if (lifecycle === 'appearing') {
+                    this.fire('graphene-mainbar-select', this.mainbar.id, { bubbles: true })
+                }
+            },
+
+            //// Listeners. ////////////////////////////////////////////////
+
+            //// Public APIs. //////////////////////////////////////////////
+
+            //// Internal APIs. ////////////////////////////////////////////
+
+            _configureMainbarProperty() {
+                // The default mainbar element name is the name of the element
+                // implementing this behavior postfixed with '-mainbar'.
+                const name     = this.localName + '-mainbar'
+                // The element id is the actual element name which is guaranteed
+                // to be unique because only one instance of a view should exist.
+                const id       = name
+                // The delegate which will handle all mainbar actions/events
+                // is the element implementing this behavior.
+                const delegate = this
+                // This is a Convention Over Configuration approach that user
+                // can customize if he needs.
+
+                const baseConfig = { 'element': name, 'id': id, 'delegate': delegate }
+
+                let userConfig = this.mainbar
+
+                if (typeof userConfig === 'string') {
+                    // 'mainbar' property can be set as a string too. This is a
+                    // shortcut for the user to configure only the mainbar id.
+                    userConfig = { id: userConfig }
+                }
+
+                // Let's merge the default and the user configuration.
+                this.mainbar = Object.assign(baseConfig, userConfig)
+            },
+        }
+    })()
+    // ]]>
+</script>

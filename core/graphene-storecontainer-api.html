@@ -1,0 +1,28 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="graphene-api.html"/>
+<link rel="import" href="graphene-container-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        Graphene.StoreContainer = function () {
+            const container = Graphene.Container()
+
+            return {
+                adapter: container,
+
+                [Graphene.Store.get]: (...args) => {
+                    return container.obtain(...args)
+                },
+            }
+        }
+    })()
+    // ]]>
+</script>

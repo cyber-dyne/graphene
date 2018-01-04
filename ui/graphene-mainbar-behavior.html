@@ -1,0 +1,105 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../core/graphene-api.html"/>
+<link rel="import" href="../core/graphene-elementfactory-api.html"/>
+<link rel="import" href="graphene-views.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        /** @polymerBehavior */
+        Graphene.MainbarBehavior = {
+            properties: {
+                mainbar: {
+                    type: Object,
+                },
+            },
+
+            listeners: {
+                'graphene-mainbar-created': '_grapheneMainbarCreatedListener',
+                'graphene-mainbar-select':  '_grapheneMainbarSelectListener',
+            },
+
+            //// Lifecycle callbacks. //////////////////////////////////////
+
+            ready() {
+                // We create the mainbar node as soon as the Local DOM is ready.
+                this.mainbars
+            },
+
+            //// Computers. ////////////////////////////////////////////////
+
+            //// Observers. ////////////////////////////////////////////////
+
+            //// Listeners. ////////////////////////////////////////////////
+
+            _grapheneMainbarCreatedListener(event, mainbar) {
+                const mainbars = Polymer.dom(this.mainbars)
+
+                mainbars.appendChild(mainbar)
+            },
+
+            _grapheneMainbarSelectListener(event, id) {
+                const mainbars  = this.mainbars
+                const emptyView = mainbars.emptyView
+
+                if (Lodash.isObject(id)) {
+                    // Undefined or null event detail is converted to an
+                    // empty object by Polymer fire. This fixes it.
+                    id = emptyView
+                }
+
+                switch (id) {
+                    case '':
+                    case null:
+                    case undefined:
+                        id = emptyView
+                        break
+                }
+
+                mainbars.selected = id
+            },
+
+            //// Public APIs. //////////////////////////////////////////////
+
+            //// Internal APIs. ////////////////////////////////////////////
+
+            get mainbars() {
+                // Mainbar node is created the first time it is accessed.
+                if (this._mainbars) {
+                    // We have already discovered or created it.
+                    return this._mainbars
+                }
+
+                // Mainbar node has not been discovered or created yet, so it is
+                // time to do it.
+
+                const element  = 'graphene-views'
+                const config   = {
+                    node: this.mainbar && this.mainbar.node,
+                    init: this._initMainbarNode.bind(this),
+                }
+                const factory  = Graphene.ElementFactory.withContext(this)
+                const mainbars = factory.discover(element, config)
+
+                // We same the reference to the discovered node.
+                this._mainbars = mainbars
+
+                return this._mainbars
+            },
+
+            _initMainbarNode(node) {
+                node.setAttribute('id', 'Mainbar')
+
+                return this
+            },
+        }
+    })()
+    // ]]>
+</script>

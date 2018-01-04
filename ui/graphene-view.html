@@ -1,0 +1,135 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../../polymer/polymer.html"/>
+<link rel="import" href="graphene-style.html"/>
+<link rel="import" href="graphene-toolbar.html"/>
+<link rel="import" href="graphene-viewanimation-behavior.html"/>
+
+<dom-module id="graphene-view">
+    <template>
+        <style include="graphene-style"></style>
+
+        <style>
+            :host {
+                @apply --graphene-host;
+                display: flex;
+                flex-direction: column;
+                @apply --graphene-view;
+            }
+
+            #Toolbar {
+                order: 1;
+                @apply --graphene-view-toolbar;
+            }
+
+            #Content {
+                @apply --graphene-host;
+                overflow-y: scroll;
+                order: 2;
+                @apply --graphene-view-content;
+            }
+
+            #Actionsbar {
+                order: 3;
+                @apply --graphene-view-actionsbar;
+            }
+        </style>
+
+        <graphene-toolbar id="Toolbar" hidden back-button="[[ backButton ]]" close-button="[[ closeButton ]]">
+            <slot id="ToolbarSlot" name="toolbar"></slot>
+        </graphene-toolbar>
+
+        <!--
+        | This is a workaround addressing the differences between the slot
+        | algorithm implementation in native and non native slot elements.
+        -->
+        <graphene-toolbar id="Actionsbar" hidden>
+            <slot id="ActionsbarSlot" name="actions"></slot>
+        </graphene-toolbar>
+
+        <div id="Content">
+            <slot></slot>
+        </div>
+    </template>
+
+    <script>
+        // <![CDATA[
+        ;(function (undefined) {
+            'use strict'
+
+            Polymer({
+                is: 'graphene-view',
+
+                behaviors: [
+                    Graphene.ViewAnimationBehavior,
+                ],
+
+                properties: {
+                    backButton:  {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    closeButton: {
+                        type: Boolean,
+                        value: false
+                    },
+                },
+
+                //// Lifecycle callbacks. //////////////////////////////////////
+
+                ready() {
+                    const optionals = [
+                        {
+                            node: this.$.Toolbar,
+                            slot: this.$.ToolbarSlot,
+                            shouldBeEnabled: this.backButton || this.closeButton
+                        },
+                        {
+                            node: this.$.Actionsbar,
+                            slot: this.$.ActionsbarSlot,
+                        },
+                    ]
+
+                    optionals.forEach((optional) => {
+                        const optionalSlot    = Polymer.dom(optional.slot)
+                        const optionalNode    = Polymer.dom(optional.node)
+                        const children        = optionalSlot.getDistributedNodes()
+                        const shouldBeEnabled = optional.shouldBeEnabled
+
+                        if (children.length > 0 || shouldBeEnabled) {
+                            // Whether the optional view's component has some
+                            // children to display or there is another reason
+                            // to show it, we unhide it.
+                            optionalNode.removeAttribute('hidden')
+                        }
+                    })
+
+                    // const actionsbarSlot = Polymer.dom(this.$.ActionsbarSlot)
+                    // const actionsbarNode = Polymer.dom(this.$.Actionsbar)
+                    //
+                    // This is a workaround addressing the differences between the slot
+                    // algorithm implementation in native and non native slot elements.
+                    // actionsbarSlot.getDistributedNodes().forEach((node) => {
+                    //     actionsbarNode.appendChild(node)
+                    // })
+                },
+
+                //// Computers. ////////////////////////////////////////////////
+
+                //// Observers. ////////////////////////////////////////////////
+
+                //// Listeners. ////////////////////////////////////////////////
+
+                //// Public APIs. //////////////////////////////////////////////
+
+                //// Internal APIs. ////////////////////////////////////////////
+            })
+        })()
+        // ]]>
+    </script>
+</dom-module>

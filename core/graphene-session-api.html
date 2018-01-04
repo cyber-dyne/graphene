@@ -1,0 +1,60 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="graphene-api.html"/>
+<link rel="import" href="graphene-cookie-api.html"/>
+<link rel="import" href="graphene-fn-api.html"/>
+<link rel="import" href="graphene-logger-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        Graphene.SessionClass = class
+        {
+            constructor(path, key='session_id')
+            {
+                this._path = path || Graphene.PREFIX || '/'
+                this._key  = key
+
+                Graphene.Logger.info('Cookie is', document.cookie)
+            }
+
+            get path()
+            {
+                return this._path
+            }
+
+            get key()
+            {
+                return this._key
+            }
+
+            get token()
+            {
+                const token = Graphene.Cookie.get(this.key)
+
+                return token
+            }
+
+            set token(token)
+            {
+                Graphene.Cookie.set(this.path, this.key, token)
+            }
+
+            destroy()
+            {
+                Graphene.Cookie.clean(this.path)
+
+                return this
+            }
+        }
+
+        Graphene.Session = Graphene.fn.newer(Graphene.SessionClass)
+    })()
+    // ]]>
+</script>

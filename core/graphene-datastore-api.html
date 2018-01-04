@@ -1,0 +1,62 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../lib/lodash.html"/>
+<link rel="import" href="graphene-api.html"/>
+<link rel="import" href="graphene-fn-api.html"/>
+<link rel="import" href="graphene-scheduler-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        Graphene.DatastoreClass = class
+        {
+            constructor(specs)
+            {
+                this.specs    = specs
+                this.promises = {}
+            }
+
+            load(collection, refresh=false)
+            {
+                const spec = this.specs[collection]
+
+                if (refresh === true || this.promises[collection] === undefined) {
+                    // We are requested to refresh data or there is not a
+                    // promise returning data.
+                    // We get a promise carrying fresh data.
+                    this.promises[collection] = spec()
+                }
+
+                // We return a new promise which will resolve with the data of
+                // the original one; in this way we avoid mutating the original
+                // promise (which could be broken by a .then() not returning
+                // the original data).
+                return Promise.resolve(this.promises[collection])
+            }
+
+            prefetch(deferStep=3000)
+            {
+                // We don't want to load all data at the same time which could
+                // lead to many concurrent request slowing down first interactions.
+                // Instead we schedule the loading one after the other with a
+                // time gap.
+                const task        = this.load.bind(this)
+                const scheduler   = Graphene.LinearScheduler(task, deferStep)
+                const collections = Object.keys(this.specs)
+
+                collections.forEach(scheduler)
+
+                return this
+            }
+        }
+
+        Graphene.Datastore = Graphene.fn.newer(Graphene.DatastoreClass)
+    })()
+    // ]]>
+</script>

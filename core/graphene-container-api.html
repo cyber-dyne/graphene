@@ -1,0 +1,307 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="graphene-api.html"/>
+<link rel="import" href="graphene-fn-api.html"/>
+<link rel="import" href="graphene-logger-api.html"/>
+<link rel="import" href="graphene-map-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        Graphene.ContainerClass = class
+        {
+            constructor()
+            {
+                // Services can be bound to their implementation or to a name.
+                // This map associates names with their implementations.
+                this.names    = {}
+                // Services can request to be retained (singleton).
+                // This map stores the created instances.
+                this.retained = Graphene.Map()
+                // The Service Manifest type property has an associated handler
+                // for every configurable type.
+                this.handlers = {
+                    [Graphene.Container.types.MANY]:     this._retainNone,
+                    [Graphene.Container.types.SHARED]:   this._retainOne,
+                    [Graphene.Container.types.CALLABLE]: this._buildCallable,
+                    [Graphene.Container.types.NEWABLE]:  this._buildNewable,
+                }
+            }
+
+            obtain(service)
+            {
+                // TODO: handle named services.
+
+                const symbols         = Graphene.Container.symbols
+                const serviceManifest = service[symbols.manifest]
+                const manifest        = serviceManifest || {}
+
+                // name:           A service can specify a name to be associated with it.
+                // implementation: A service can be just a descriptor of another implementation.
+                // requirements:   A service can request other services or values.
+                // retainer:       The strategy to use for retaining the service instance.
+                // builder:        The strategy to use for building the service instance:
+                //                 NEWABLE (new Service()) or CALLABLE (Service()).
+                const info = {
+                    service:        service,
+                    name:           this._serviceName(manifest),
+                    implementation: this._serviceImplementation(manifest, service),
+                    requirements:   this._serviceRequirements(manifest),
+                    retainer:       this._serviceRetainer(manifest),
+                    builder:        this._serviceBuilder(manifest),
+                }
+
+                const instance = info.retainer.call(this, info)
+
+                return instance
+            }
+
+            _retainNone(info)
+            {
+                // This retainer builds every requested instance. Nothing special.
+                const instance = this._buildService(info)
+
+                return instance
+            }
+
+            _retainOne(info)
+            {
+                const service  = info.service
+                const retained = this.retained.get(service)
+
+                if (retained) {
+                    return retained
+                }
+
+                const instance = this._retainNone(info)
+
+                this.retained.put(service, instance)
+
+                return instance
+            }
+
+            _buildCallable(impl, args)
+            {
+                const instance = impl.call(impl, ...args)
+
+                return instance
+            }
+
+            _buildNewable(impl, args)
+            {
+                const instance = new impl(...args)
+
+                return instance
+            }
+
+            _buildService(info)
+            {
+                Graphene.Logger.info('Graphene.Container: Building service', info)
+
+                this._registerNamedService(info)
+
+                const builder  = info.builder
+                const args     = this._buildServiceArgs(info)
+                const impl     = info.implementation
+                const instance = builder.call(this, impl, args)
+
+                return instance
+            }
+
+            _buildServiceArgs(info)
+            {
+                const symbols      = Graphene.Container.symbols
+                const requirements = info.requirements
+
+                const args = requirements.map(req => {
+                    const reqManifest = req[symbols.manifest]
+
+                    if (! reqManifest) {
+                        // This argument is plain data (string, number, array, object)
+                        // but not an other service.
+                        return req
+                    }
+
+                    const instance = this.obtain(req)
+
+                    return instance
+                })
+
+                return args
+            }
+
+            _registerNamedService(info)
+            {
+                const name = info.name
+
+                if (! name) {
+                    // The service doesn't request to associate a name with
+                    // its implementation.
+                    return this
+                }
+
+                const named = this.names[name]
+
+                if (named !== undefined) {
+                    // The name is already associated with a service.
+                    return this
+                }
+
+                // We associate the name with the service implementation.
+                this.names[name] = info.service
+
+                return this
+            }
+
+            _serviceName(manifest)
+            {
+                const symbols = Graphene.Container.symbols
+                const name    = manifest[symbols.name]
+
+                return name
+            }
+
+            _serviceImplementation(manifest, service)
+            {
+                const symbols        = Graphene.Container.symbols
+                const providing      = manifest[symbols.providing]
+                const implementation = providing || service
+                // Whether the service doesn't specify what it is 'providing'
+                // we use the service object himself as the provided implementation.
+
+                return implementation
+            }
+
+            _serviceRequirements(manifest)
+            {
+                const symbols      = Graphene.Container.symbols
+                const requiring    = manifest[symbols.requiring]
+                const requirements = requiring || []
+
+                return requirements
+            }
+
+            _serviceRetainer(manifest)
+            {
+                const symbols  = Graphene.Container.symbols
+                const type     = manifest[symbols.type]
+                const flags    = [
+                    Graphene.Container.types.SHARED,
+                    Graphene.Container.types.MANY,
+                ]
+                const defFlag  = Graphene.Container.types.MANY
+                const flag     = this._findFlag(type, flags, defFlag)
+                const handlers = this.handlers
+                const retainer = this.handlers[flag]
+
+                return retainer
+            }
+
+            _serviceBuilder(manifest)
+            {
+                const symbols  = Graphene.Container.symbols
+                const type     = manifest[symbols.type]
+                const flags    = [
+                    Graphene.Container.types.CALLABLE,
+                    Graphene.Container.types.NEWABLE,
+                ]
+                const defFlag  = Graphene.Container.types.CALLABLE
+                const flag     = this._findFlag(type, flags, defFlag)
+                const handlers = this.handlers
+                const builder  = this.handlers[flag]
+
+                return builder
+            }
+
+            _findFlag(mask, searches, defFlag)
+            {
+                const length = searches.length
+                let   index  = 0
+
+                while (index < length) {
+                    const flag = searches[index]
+
+                    if (mask & flag) {
+                        // We found a flag and we return it, the first found.
+                        return flag
+                    }
+
+                    ++index
+                }
+
+                // We have found no flag. So we return the default one.
+                return defFlag
+            }
+        }
+
+        Graphene.Container = Graphene.fn.newer(Graphene.ContainerClass)
+
+        Graphene.Container.symbols = {
+            manifest:  Symbol('Graphene.Container.manifest'),
+            name:      Symbol('Graphene.Container.name'),
+            providing: Symbol('Graphene.Container.providing'),
+            requiring: Symbol('Graphene.Container.requiring'),
+            type:      Symbol('Graphene.Container.type'),
+        }
+
+        Graphene.Container.types = {
+            MANY:     1,
+            SHARED:   2,
+            CALLABLE: 4,
+            NEWABLE:  8,
+        }
+
+        Graphene.Container.describe = function (service) {
+            const manifest = {}
+            const symbols  = Graphene.Container.symbols
+            const types    = Graphene.Container.types
+
+            service[symbols.manifest] = manifest
+
+            return {
+                withName(name) {
+                    manifest[symbols.name] = name
+
+                    return this
+                },
+
+                asCallable() {
+                    manifest[symbols.type] |= types.CALLABLE
+
+                    return this
+                },
+
+                asNewable() {
+                    manifest[symbols.type] |= types.NEWABLE
+
+                    return this
+                },
+
+                asShared() {
+                    manifest[symbols.type] |= types.SHARED
+
+                    return this
+                },
+
+                providing(implementation) {
+                    manifest[symbols.providing] = implementation
+
+                    return this
+                },
+
+                requiring(...args) {
+                    manifest[symbols.requiring] = args
+
+                    return this
+                },
+            }
+        }
+    })()
+    // ]]>
+</script>

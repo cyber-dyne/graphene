@@ -1,0 +1,152 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../../polymer/polymer.html"/>
+<link rel="import" href="../core/graphene-api.html"/>
+<link rel="import" href="../ui/graphene-style.html"/>
+<link rel="import" href="graphene-chart.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        /** @polymerBehavior */
+        Graphene.ChartBehavior = {
+            properties: {
+                type: {
+                    type: String,
+                },
+
+                defaults: {
+                    type: Object,
+                    value: {},
+                    // This object has the following structure when configured by the developer:
+                    // {
+                    //     shared: {
+                    //         data:    {},     // ChartJS data    structure.
+                    //         options: {},     // ChartJS options structure.
+                    //     },
+                    //     [type]: {            // The chart type: 'line', 'bar', etc.
+                    //         data:    {},     // ChartJS data    structure.
+                    //         options: {},     // ChartJS options structure.
+                    //     },
+                    // }
+                },
+
+                data: {
+                    type: Object,
+                },
+
+                options: {
+                    type: Object,
+                    value: {},
+                },
+
+                _data: {
+                    type: Object,
+                    computed: '_dataComputer(type, defaults, data)',
+                    // ChartJS data structure, as result from the merge
+                    // between the default configurations (shared and
+                    // chart-type specific) and the developer configuration.
+                },
+
+                _options: {
+                    type: Object,
+                    computed: '_optionsComputer(type, defaults, options)',
+                    // ChartJS options structure, as result from the merge
+                    // between the default configurations (shared and
+                    // chart-type specific) and the developer configuration.
+                },
+
+                chartNode: {
+                    type: Object,
+                },
+            },
+
+            observers: [
+                '_chartPropsObserver(type, _data, _options, chartNode)',
+            ],
+
+            //// Lifecycle callbacks. //////////////////////////////////////////
+
+            ready() {
+                const root      = Polymer.dom(this.root)
+                const chartNode = this.create('graphene-chart')
+
+                root.appendChild(chartNode)
+
+                this.chartNode = chartNode
+
+                // TODO: programmatically @apply --graphene-host.
+            },
+
+            //// Computers. ////////////////////////////////////////////////////
+
+            _dataComputer(type, defaults, data) {
+                const merge = this._mergeConfig(type, 'data', data, defaults)
+
+                return merge
+            },
+
+            _optionsComputer(type, defaults, options) {
+                const merge = this._mergeConfig(type, 'options', options, defaults)
+
+                return merge
+            },
+
+            //// Observers. ////////////////////////////////////////////////////
+
+            _chartPropsObserver(type, _data, _options, chartNode) {
+                if (Lodash.some(arguments, Lodash.isNil)) {
+                    return
+                }
+
+                chartNode.type     = type
+                chartNode.data     = _data
+                chartNode.options  = _options
+            },
+
+            //// Listeners. ////////////////////////////////////////////////////
+
+            //// Public APIs. //////////////////////////////////////////////////
+
+            //// Internal APIs. ////////////////////////////////////////////////
+
+            _mergeConfig(type, configName, config, defs) {
+                if (Lodash.some(arguments, Lodash.isNil)) {
+                    return
+                }
+
+                const defaults = this._defaults(type, configName)
+                const [ sharedDefaults, typeDefaults ] = defaults
+                // The sharedDefaults is the default configuration shared
+                // between every chart type, for example the border and
+                // background colors can be shared between line and bar charts.
+                // The typeDefaults is the configuration specific for a chart
+                // type, for example the cubicInterpolationMode for the line chart.
+                const merge = Lodash.merge({}, sharedDefaults, typeDefaults, config)
+
+                return merge
+            },
+
+            _defaults(type, configName) {
+                // See this.default property for an overview of the object structure.
+                const defaults       = this.defaults
+                const sharedDefaults = Lodash.get(defaults, ['shared', configName], {})
+                const typeDefaults   = Lodash.get(defaults, [type,     configName], {})
+
+                // We return a deep clone of the default shared and chart-type
+                // configurations. This is required because the default
+                // configurations are merged with the public properties
+                // and without a deep clone the merge would mutate the
+                // default configurations.
+                return [ sharedDefaults, typeDefaults ].map(Lodash.cloneDeep)
+            },
+        }
+    })()
+    // ]]>
+</script>

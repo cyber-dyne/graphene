@@ -1,0 +1,168 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../lib/lodash.html"/>
+<link rel="import" href="graphene-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        Graphene.ElementFactory = class
+        {
+            static name(elementPath)
+            {
+                // We split a relative url path like '../el/el'.
+                const parts = elementPath.split('/')
+                // We obtain the last part, for example 'el'.
+                const name  = Lodash.last(parts)
+
+                return name
+            }
+
+            static withContext(context)
+            {
+                return new Graphene.ElementFactoryContext(context)
+            }
+        }
+
+        Graphene.ElementFactoryContext = class
+        {
+            constructor(context)
+            {
+                this.context = context
+            }
+
+            create(element)
+            {
+                // We convert the specific case of one element to the
+                // more generic case of an array of elements.
+                const elements = Lodash.flatten([ element ])
+                const promises = elements.map(this._create, this)
+
+                return promises.length === 1 ?
+                    promises[0]
+                :
+                    Promise.all(promises)
+            }
+
+            _create(element)
+            {
+                // User could pass a relative path. We want only the
+                // element name.
+                const name = Graphene.ElementFactory.name(element)
+
+                // We try to create the element.
+                const node = this.context.create(name)
+                // This check doesn't work on Safari which returns a generic
+                // function for unknown elements.
+                // const imported = node.constructor !== HTMLElement
+                // const imported = (node.is === node.localName)
+                // const imported = Graphene.BUNDLE === true
+                const imported = true // Dynamic import facility is disabled
+                                      // due to problems with the vulcanization.
+
+                if (imported) {
+                    // If already registered, we return a promise which
+                    // resolves with the element instance.
+                    return Promise.resolve(node)
+                }
+
+                // The element is not yet registered, so we must import it.
+                const path = `${element}.html`
+                const url  = this.context.resolveUrl(path)
+
+                const promise = new Promise((resolvePromise, rejectPromise) => {
+                    // We request the import of the dom-module. When the request
+                    // completes we resolve returning the previous created
+                    // element node.
+                    this.context.importHref(url, () => resolvePromise(node), rejectPromise)
+                })
+
+                return promise
+            }
+
+            selectNode(node)
+            {
+                if (Lodash.isString(node)) {
+                    const found = this.context.$$(node)
+
+                    return found
+                }
+
+                return node
+            }
+
+            selectNodes(node)
+            {
+                if (Lodash.isString(node)) {
+                    const root  = Polymer.dom(this.context.root)
+                    const found = root.querySelectorAll(node)
+
+                    return found
+                }
+
+                return node
+            }
+
+            discover(element, config)
+            {
+                const name = Graphene.ElementFactory.name(element)
+                const root = config.root || this.context.root
+                const init = config.init
+                let node   = config.node
+
+                // 1) We check if the user has configured a query selector
+                // where the node can be found or appended.
+                node = this.selectNode(node)
+
+                // 2) We check if we have found a node where appending the element.
+                if (node && node.localName !== name) {
+                    // User has configured a selector or a node as the root
+                    // where appending a new instance of the element.
+                    // Let's create the element inside it.
+                    node = this._attachNode(node, name, init)
+                }
+
+                // 3) The node can be an actual element node or to be not
+                // configured at all.
+                if (! node) {
+                    // User has not configured a node at all.
+                    // Let's try to find it automagically. ᕦ(ò_óˇ)ᕤ
+                    node = this.context.$$(name)
+                }
+
+                // 4) The node can be an actual element node automagically
+                // found or being not configured at all.
+                if (! node) {
+                    // We have not found the element node.
+                    // Let's create a default one in the fallback root
+                    node = this._attachNode(root, element, init)
+                }
+
+                // At this point, the node
+                // if not created and passed by the user and
+                //    not found through a query selector passed by the user and
+                //    not found through its element name,
+                // is created, inited and attached to the dafault root.
+                return node
+            }
+
+            _attachNode(root, element, init)
+            {
+                const node = this.context.create(element)
+
+                init && init(node)
+
+                Polymer.dom(root).appendChild(node)
+
+                return node
+            }
+        }
+    })()
+    // ]]>
+</script>

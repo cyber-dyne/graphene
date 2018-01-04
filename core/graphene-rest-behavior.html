@@ -1,0 +1,67 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../lib/lodash.html"/>
+<link rel="import" href="graphene-api.html"/>
+<link rel="import" href="graphene-container-behavior.html"/>
+<link rel="import" href="graphene-store-behavior.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        /** @polymerBehavior */
+        Graphene.RestBehaviorImpl = {
+            properties: {
+                rest: {
+                    type: Object,
+                },
+
+                restPrefix: {
+                    type: String,
+                },
+
+                restHeaders: {
+                    type: Array,
+                },
+
+                restService: {
+                    type: Object,
+                },
+            },
+
+            observers: [
+                '_restSetter(store, restService)',
+            ],
+
+            //// Lifecycle callbacks. //////////////////////////////////////////
+
+            //// Computers. ////////////////////////////////////////////////////
+
+            //// Observers. ////////////////////////////////////////////////////
+
+            _restSetter(store, restService) {
+                const { require } = store
+                const rest = require(restService)
+
+                this.rest        = rest
+                this.restHeaders = rest.headers
+                this.restPrefix  = rest.prefix
+            },
+
+            //// Listeners. ////////////////////////////////////////////////////
+
+            //// Public APIs. //////////////////////////////////////////////////
+
+            //// Internal APIs. ////////////////////////////////////////////////
+        }
+
+        /** @polymerBehavior */
+        Graphene.RestBehavior = [ Graphene.StoreBehavior, Graphene.RestBehaviorImpl ]
+    })()
+    // ]]>
+</script>

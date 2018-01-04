@@ -1,0 +1,201 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../../polymer/polymer.html"/>
+<link rel="import" href="graphene-api.html"/>
+<link rel="import" href="graphene-browser-api.html"/>
+<link rel="import" href="graphene-element-factory.html"/>
+
+<dom-module id="graphene-boot">
+    <template>
+        <style>
+            :host {
+                display: block;
+                height: 100%;
+                width:  100%;
+            }
+        </style>
+
+        <graphene-element-factory factory-element="[[ element ]]"></graphene-element-factory>
+    </template>
+
+    <script>
+        // <![CDATA[
+        ;(function (undefined) {
+            'use strict'
+
+            const document = Graphene.Browser.document
+            const location = Graphene.Browser.location
+
+            Polymer({
+                is: 'graphene-boot',
+
+                properties: {
+                    default: {
+                        type: String,
+                    },
+
+                    element: {
+                        type: String,
+                    },
+
+                    queryParam: {
+                        type: String,
+                        value: 'app',
+                    },
+
+                    queryParamRegexp: {
+                        type: String,
+                        computed: '_queryParamRegexpComputer(queryParam)',
+                    },
+                },
+
+                observers: [
+                    '_elementObserver(element)',
+                ],
+
+                //// Lifecycle callbacks. //////////////////////////////////////
+
+                ready() {
+                    this._fixBundle()
+
+                    this.element = this._element
+                },
+
+                //// Computers. ////////////////////////////////////////////////
+
+                _queryParamRegexpComputer(queryParam) {
+                    const pattern = `[?&]${queryParam}=([^&#]*)`
+                    const flags   = 'i'
+                    const regexp  = new RegExp(pattern, flags)
+
+                    return regexp
+                },
+
+                //// Observers. ////////////////////////////////////////////////
+
+                _elementObserver(element) {
+                    console.info('Booting', element, Graphene)
+
+                    this._import(element)
+
+                    this._hideSpinner()
+                },
+
+                //// Listeners. ////////////////////////////////////////////////
+
+                //// Public APIs. //////////////////////////////////////////////
+
+                configure(manifest) {
+                    // We export every manifest's property as an upper case
+                    // constant property. These properties are constant and by
+                    // convention constants are upper case.
+                    // Example: Graphene.ROUTING
+                    for (const field in manifest) {
+                            const prop  = field.toUpperCase()
+                            const value = manifest[field]
+
+                            Object.defineProperty(Graphene, prop, {
+                                    enumerable:   true,
+                                    configurable: false,
+                                    writable:     false,
+                                    value:        Object.freeze(value),
+                            })
+                    }
+
+                    return this
+                },
+
+                //// Internal APIs. ////////////////////////////////////////////
+
+                _fixBundle() {
+                    // Vulcanize/polymer-bundler breaks this.resolveUrl().
+                    // See https://github.com/Polymer/polymer/issues/4532
+                    //     https://github.com/Polymer/polymer/issues/4838
+                    // We fix it.
+                    const modules     = document.querySelectorAll('dom-module')
+                    const attrName    = 'assetpath'
+                    const schemaRegex = /^http[s]?:/
+
+                    modules.forEach(module => {
+                        const path = module.getAttribute(attrName)
+                        // It can be:
+                        // - bundle@id/my-el
+                        // - /bundle@id/my-el
+                        // - http://domain:port/path/bundle@id/my-el
+
+                        if (path.match(schemaRegex) !== null) {
+                            // The assetpath is expressed with an URL. It is ok
+                            // and we have nothing to in this case.
+                            // http://domain:port/path/bundle@id/my-el
+                            return
+                        }
+
+                        // We need an absolute path.
+                        // bundle@id/my-el      to      /bundle@id/my-el
+                        const absPath = ('/' + path).replace('//', '/')
+                        // //bundle@id/my-el    to      /bundle@id/my-el
+
+                        // We need an absolute URL otherwise the Polymer
+                        // .resolveUrl() fails resolving relative '../..' paths.
+                        const origin = module.ownerDocument.location.origin     // http://host:port
+                        // const prefix = Graphene.PREFIX                       // /path or '' (empty)
+                        const prefix = ''                                       // Disabled because polymer-bundler can be cheated to embed it.
+                        const url    = origin + prefix + absPath                // http://host:port/path/bundle@id/my-el
+
+                        module.setAttribute(attrName, url)
+                    })
+
+                    return this
+                },
+
+                get _element() {
+                    // We dynamically detect the element. It can be dynamically
+                    // configured passing ${this.queryParam}=<el-name> as
+                    // request's query parameter.
+                    const match = location.search.match(this.queryParamRegexp)
+
+                    if (match !== null) {
+                        return match[1]
+                    }
+
+                    if (this.default !== undefined) {
+                        return this.default
+                    }
+
+                    if (Graphene.APP !== undefined) {
+                        return Graphene.APP
+                    }
+
+                    // undefined otherwise.
+                },
+
+                _import(element) {
+                    // // Let's create a <link rel="import> to load the application custom element.
+                    // const link     = document.createElement('link')
+                    // const linkHref = `${Graphene.PREFIX}/${Graphene.BUNDLE}/${appName}/${appName}.html`
+                    // link.setAttribute('rel',  'import')
+                    // link.setAttribute('href', linkHref)
+                    // document.head.appendChild(link)
+
+                    return this
+                },
+
+                _hideSpinner() {
+                    // Time to hide the Alfred spinner.
+                    const alfred = document.body.querySelector('#Alfred')
+
+                    // We could remove it but it is more useful there;
+                    // we could use it later.
+                    alfred && (alfred.style.display = 'none')
+
+                    return this
+                },
+            })
+        })()
+        // ]]>
+    </script>
+</dom-module>

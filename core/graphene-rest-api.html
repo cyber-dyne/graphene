@@ -1,0 +1,235 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../../iron-ajax/iron-ajax.html"/>
+<link rel="import" href="graphene-browser-api.html"/>
+<link rel="import" href="graphene-fn-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        Graphene.RestClass = class
+        {
+            constructor(prefix, headers)
+            {
+                // Now, we can detect a default prefix if not provided by the user.
+                this.prefix  = prefix  || this.defaultPrefix
+                this.headers = headers || []
+            }
+
+            get defaultPrefix()
+            {
+                function defaultPortForProtocol(protocol) {
+                    switch (protocol) {
+                        case 'http:':
+                            return '80'
+                        case 'https:':
+                            return '443'
+                    }
+                    // For not recognized protocols we return undefined.
+                }
+
+                const location = Graphene.Browser.location
+                const params   = Graphene.Browser.queryParams
+
+                const parts = {
+                    protocol: params.rest_protocol || location.protocol,
+                    host:     params.rest_host     || location.hostname,
+                    port:     params.rest_port     || location.port     || defaultPortForProtocol(location.protocol),
+                    path:     params.rest_path     || 'api',
+                }
+
+                switch (params.rest) {
+                    case undefined:
+                        break
+                    case 'dev':
+                        // This profile is here to work with a a Rest host
+                        // running on the same Web client machine but not
+                        // behind a reverse proxy.
+                        Object.assign(parts, {
+                            protocol: 'http:',
+                            port:     '8080',
+                        })
+                        break
+                    default:
+                        // 'rest' query parameter is a value different from a
+                        // profile identifier. In fact user can pass any custom
+                        // url to use as prefix.
+                        const prefix = decodeURIComponent(params.rest)
+
+                        // We have nothing more to do, this is the prefix to use
+                        // so we can return.
+                        return prefix
+                }
+
+                const template = '{protocol}//{host}:{port}/{path}'
+                const prefix   = template
+                    .replace('{protocol}', parts.protocol)
+                    .replace('{host}',     parts.host)
+                    .replace('{port}',     parts.port)
+                    .replace('{path}',     parts.path)
+
+                return prefix
+            }
+
+            _fromResponseToEnvelope(event)
+            {
+                const detail   = event.detail
+                const response = event.detail.response
+
+                return {
+                    event:    event,
+                    detail:   detail,
+                    response: response,
+                }
+            }
+
+            _fromErrorToEnvelope(event, error)
+            {
+                const detail = event.detail
+                // const response = event.detail.response
+
+                return {
+                    event:  event,
+                    detail: detail,
+                    error:  error,
+                }
+            }
+
+            _mergeOptions(defOptions={}, userOptions={})
+            {
+                const options = Object.assign({}, defOptions, userOptions)
+
+                return options
+            }
+
+            _requestListener(request)
+            {
+                // It returns a callback for the Promise constructor
+                // created ad-hoc to handle iron-ajax internals.
+                return (resolvePromise, rejectPromise) => {
+                    // iron-ajax in case everything goes well triggers a
+                    // 'response' event on the request object.
+                    request.addEventListener('response', event => {
+                        // The generic iron-ajax 'event' argument must be
+                        // exploded for easy adoption from user.
+                        const result = this._fromResponseToEnvelope(event)
+
+                        resolvePromise(result)
+                    })
+
+                    // iron-ajax in case of error triggers an 'error' event
+                    // on the request object.
+                    request.addEventListener('error', (event, error) => {
+                        // The generic iron-ajax 'event' argument must be
+                        // exploded for easy adoption from user.
+                        const result = this._fromErrorToEnvelope(event, error)
+
+                        rejectPromise(result)
+                    })
+                }
+            }
+
+            request(options)
+            {
+                const document = Graphene.Browser.document
+
+                // First, we create a request adapter.
+                const request = document.createElement('iron-ajax')
+
+                // Time to augment it with default and user-provided properties.
+                Object.assign(request, options)
+
+                // In the next step, the promise constructor needs a callback
+                // which will handle the fulfilment or the rejection of the promise.
+                // This method call creates an ad-hoc promise handler to handle
+                // iron-ajax internals.
+                const requestListener = this._requestListener(request)
+
+                // Let's create our promise to return to the user.
+                const promise = new Promise(requestListener)
+
+                // Time to actually trigger the XHR request.
+                // Our promise handler is listening for events on this object,
+                // and based on the type of event it will receive, it will
+                // fulfil or reject.
+                request.generateRequest()
+
+                // Our promise is returned to the user so he can 'then' the result
+                // or catch an error.
+                return promise
+            }
+
+            get(path, params, userOptions)
+            {
+                const defOptions = {
+                    method:    'GET',
+                    url:       this.prefix + path,
+                    headers:   this.headers,
+                    params:    params,
+                    handleAs:  'json',                  // or 'text' | 'xml' | 'json' | 'arrayBuffer' | 'document' | 'blob'.
+                }
+
+                const options = this._mergeOptions(defOptions, userOptions)
+
+                return this.request(options)
+            }
+
+            post(path, body, userOptions)
+            {
+                const defOptions = {
+                    method:      'POST',
+                    url:         this.prefix + path,
+                    headers:     this.headers,
+                    body:        body,
+                    contentType: 'application/json',    // or 'application/x-www-form-urlencoded'
+                    handleAs:    'json',                // or 'text' | 'xml' | 'json' | 'arrayBuffer' | 'document' | 'blob'.
+                }
+
+                const options = this._mergeOptions(defOptions, userOptions)
+
+                return this.request(options)
+            }
+
+            put(path, body, userOptions)
+            {
+                const defOptions = {
+                    method:      'PUT',
+                    url:         this.prefix + path,
+                    headers:     this.headers,
+                    body:        body,
+                    contentType: 'application/json',    // or 'application/x-www-form-urlencoded'
+                    handleAs:    'json',                // or 'text' | 'xml' | 'json' | 'arrayBuffer' | 'document' | 'blob'.
+                }
+
+                const options = this._mergeOptions(defOptions, userOptions)
+
+                return this.request(options)
+            }
+
+            delete(path, body, userOptions)
+            {
+                const defOptions = {
+                    method:      'DELETE',
+                    url:         this.prefix + path,
+                    headers:     this.headers,
+                    body:        body,
+                    contentType: 'application/json',    // or 'application/x-www-form-urlencoded'
+                    handleAs:    'json',                // or 'text' | 'xml' | 'json' | 'arrayBuffer' | 'document' | 'blob'.
+                }
+
+                const options = this._mergeOptions(defOptions, userOptions)
+
+                return this.request(options)
+            }
+        }
+
+        Graphene.Rest = Graphene.fn.newer(Graphene.RestClass)
+    })()
+    // ]]>
+</script>

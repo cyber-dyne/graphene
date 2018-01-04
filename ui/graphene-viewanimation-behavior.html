@@ -1,0 +1,112 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../../neon-animation/neon-animatable-behavior.html">
+<link rel="import" href="../../neon-animation/neon-animations.html">
+<link rel="import" href="../core/graphene-api.html"/>
+<link rel="import" href="../lib/lodash.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        /** @polymerBehavior */
+        Graphene.ViewAnimationBehaviorImpl = {
+            defaultAnimations: {
+                'entry': [
+                    {
+                        name: 'fade-in-animation',
+                        timing: { duration: 300 },
+                    },
+                ],
+                'exit': [
+                    {
+                        name: 'fade-out-animation',
+                        timing: { duration: 300 },
+                    },
+                ],
+            },
+
+            properties: {
+                animations: {
+                    type: Object,
+                },
+            },
+
+            observers: [
+                '_mergeAnimations(animations)',
+            ],
+
+            //// Lifecycle callbacks. //////////////////////////////////////////
+
+            ready() {
+                this._mergeAnimations()
+            },
+
+            //// Computers. ////////////////////////////////////////////////////
+
+            //// Observers. ////////////////////////////////////////////////////
+
+            //// Listeners. ////////////////////////////////////////////////////
+
+            //// Public APIs. //////////////////////////////////////////////////
+
+            //// Internal APIs. ////////////////////////////////////////////////
+
+            _mergeAnimations() {
+                // We need to mutate the animations objects which could be
+                // defined as shared objects and we can't alter the original
+                // ones, otherwise bad things could happen!
+                // Uohooo Ψ(`_´)↝
+                const defAnimations = Lodash.cloneDeep(this.defaultAnimations)
+                const ownAnimations = Lodash.cloneDeep(this.animations)
+                const animations    = Object.assign({}, defAnimations, ownAnimations)
+
+                for (let animationName in animations) {
+                    // 'animations' can be something like this:
+                    // = {
+                    //     'entry': [
+                    //         { an animation configuration here      },
+                    //         { another animation configuration here },
+                    //         ...
+                    //     ],
+                    //     'exit': { one animation configuration here },
+                    //     ],
+                    // }
+                    const animationSteps = animations[animationName]
+
+                    if (Lodash.isPlainObject(animationSteps)) {
+                        // This is an animation group made of only one animation
+                        // object. We convert in the more general case of an
+                        // animation group made with an array of many animation
+                        // objects.
+                        animations[animationName] = [ animationSteps ]
+                    }
+
+                    function ensureDefaultNode(animationStep) {
+                        // In case user has not specified a node to animate,
+                        // we fallback to use this element (the one implementing
+                        // the behavior) as node to animate.
+                        animationStep.node = animationStep.node || this
+                    }
+
+                    animationSteps.forEach(ensureDefaultNode, this)
+                }
+
+                // Property provided by Polymer.NeonAnimatableBehavior.
+                this.animationConfig = animations
+            },
+        }
+
+        /** @polymerBehavior */
+        Graphene.ViewAnimationBehavior = [
+            Polymer.NeonAnimatableBehavior,
+            Graphene.ViewAnimationBehaviorImpl,
+        ]
+    })()
+    // ]]>
+</script>

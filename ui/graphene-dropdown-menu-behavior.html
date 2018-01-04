@@ -1,0 +1,86 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../core/graphene-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        /** @polymerBehavior */
+        Graphene.DropdownMenuBehavior = {
+            //// Lifecycle callbacks. //////////////////////////////////////////
+
+            ready() {
+                function customize() {
+                    const root              = Polymer.dom(this.root)
+                    const dropdownMenus     = root.querySelectorAll('paper-dropdown-menu')
+                    const menuButtons       = root.querySelectorAll('paper-menu-button')
+                    const styleDropdownMenu = this.stylePaperDropdownMenu.bind(this)
+                    const styleMenuButton   = this.stylePaperMenuButton.bind(this)
+
+                    dropdownMenus.forEach(styleDropdownMenu)
+                    menuButtons.forEach(styleMenuButton)
+                }
+
+                // We need async to access stamped dom-repeat/dom-if elements.
+                this.async(customize.bind(this))
+            },
+
+            //// Computers. ////////////////////////////////////////////////////
+
+            //// Observers. ////////////////////////////////////////////////////
+
+            //// Listeners. ////////////////////////////////////////////////////
+
+            //// Public APIs. //////////////////////////////////////////////////
+
+            stylePaperDropdownMenu(dropdownMenu) {
+                // This prevents the dropdown menu re-open on keyboard's enter key
+                // item select
+                dropdownMenu.keyEventTarget = null
+
+                // Paper Dropdown Menus really suck. We style them to be more
+                // appealing.
+                const menuButton = dropdownMenu.$$('paper-menu-button')
+
+                return this.stylePaperMenuButton(menuButton)
+            },
+
+            stylePaperMenuButton(menuButton) {
+                const dropdown        = menuButton.$$('iron-dropdown')
+                const dropdownContent = dropdown.querySelector('.dropdown-content')
+
+                menuButton.verticalOffset          = 55
+                dropdownContent.style.borderRadius = '6px'
+
+                const content = menuButton.queryEffectiveChildren('.dropdown-content')
+                const list    = content.querySelector('iron-list, paper-listbox') || content
+
+                switch (true) {
+                    case list.multi:
+                    case list.multiSelection:
+                        this.configurePaperMenuButton(menuButton, false)
+                }
+
+                return this
+            },
+
+            configurePaperMenuButton(menuButton, autoClose) {
+                // paper-menu-button automatically closes when receives
+                // a iron-select event. We can prevent it from closing.
+                menuButton.ignoreSelect    = ! autoClose
+                menuButton.closeOnActivate = autoClose
+
+                return this
+            },
+
+            //// Internal APIs. ////////////////////////////////////////////////
+        }
+    })()
+    // ]]>
+</script>

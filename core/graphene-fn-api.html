@@ -1,0 +1,211 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../lib/lodash.html"/>
+<link rel="import" href="graphene-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        Graphene.fn = {
+            invokeOn(obj, thisBind) {
+                // This function accepts one object or an array of objects.
+                const objs = Lodash.flatten([ obj ])
+
+                return {
+                    invoke(method, ...args) {
+                        // This function accepts one method or an array of methods.
+                        const methods = Lodash.flatten([ method ])
+                        const returns = Graphene.fn.crossInvoke(objs, methods, args, thisBind)
+                        // In case the user requested to invoke the method
+                        // on one object only, we unwrap the containing array
+                        // returning only the method's return value.
+                        return (returns.length === 1) ? returns[0] : returns
+                    },
+                }
+            },
+
+            crossInvoke(objs, methods, args, thisBind) {
+                // This function tries invoking on every object the first found method.
+                // 'methods' is an Array made of Symbols (recommended) to look
+                // for first and Strings as fallback.
+                // We search for multiple interfaces implementations to be
+                // compliant with the Polymer behaviors merging which doesn't
+                // support Symbols but only objects' own property names.
+                // The fist implemented interface is executed and its return
+                // value is returned.
+                const returns = objs.map(obj => {
+                    for (const method of methods) {
+                        // Lodash.invoke(obj, method, ...args)
+                        // does the same but doesn't allow to change the binding context.
+                        const fn = Lodash.get(obj, method)
+
+                        if (fn === undefined) {
+                            // The method is not implemented. We can continue.
+                            continue
+                        }
+
+                        if (thisBind === undefined) {
+                            // User has not requested to bind the method
+                            // to a different context. We invoke the object's
+                            // method bound to the default context (the owner object).
+                            return fn.apply(obj, args)
+                        }
+
+                        // User has requested to bind the method to a different
+                        // context. We invoke the object's method bound to that
+                        // context (thisBind).
+                        return fn.apply(thisBind, args)
+                    }
+
+                    // undefined otherwise.
+                })
+
+                return returns
+            },
+
+            invokeBehaviors(el, method, args) {
+                const on        = Graphene.fn.invokeOn
+                const behaviors = el.behaviors
+
+                return on(behaviors, el).invoke(method, ...args)
+            },
+
+            // some(collection) {
+            //     return {
+            //         areNil() {
+            //             return Lodash.some(collection, Lodash.isNil)
+            //         },
+            //     }
+            // },
+
+            construct(Klass, ...args) {
+                const Factory = Klass.bind(Klass, ...args)
+
+                return new Factory()
+            },
+
+            newer(Klass) {
+                return function (...args) {
+                    return Graphene.fn.construct(Klass, ...args)
+                }
+            },
+
+            newerOnce(Klass) {
+                let instance
+
+                return function (...args) {
+                    if (! instance) {
+                        instance = Graphene.fn.construct(Klass, ...args)
+                    }
+
+                    return instance
+                }
+            },
+
+            getOwnPropertyNamesAndSymbols(obj) {
+                const props = []
+                const names = Object.getOwnPropertyNames(obj)
+
+                props.push(...names)
+
+                if (Object.getOwnPropertySymbols) {
+                    const symbols = Object.getOwnPropertySymbols(obj)
+
+                    props.push(...symbols)
+                }
+
+                return props
+            },
+
+            proxify(proxy) {
+                let _adapter
+
+                return {
+                    using(adapter) {
+                        _adapter = adapter
+
+                        return this
+
+                    },
+
+                    property(property) {
+                        const adapter = _adapter
+
+                        Object.defineProperty(proxy, property, {
+                            get() {
+                                return adapter[property]
+                            },
+
+                            set(value) {
+                                adapter[property] = value
+                            },
+                        })
+
+                        return this
+                    },
+
+                    method(method) {
+                        const adapter = _adapter
+
+                        proxy[method] = function (...args) {
+                            return adapter[method].call(adapter, ...args)
+                        }
+
+                        return this
+                    },
+                }
+            },
+
+            // Usage:
+            //   format('A {{ key1 }} message with {{ key2 }}.')
+            //     .with('key1', 'val1')
+            //     .with('key2', 'val2')
+            //     .with({'key1': 'val1',
+            //            'key2': 'val2'})
+            //     .render()
+            // format(tpl) {
+            //     return {
+            //         with(key, val) {
+            //             let map = key
+            //
+            //             if (val !== undefined) {
+            //                 map = {}
+            //                 map[key] = val
+            //             }
+            //
+            //             for (let k in map) {
+            //                 const regex = new RegExp('{{\\s*' + k + '\\s*}}', 'g')
+            //
+            //                 tpl = tpl.replace(regex, map[k])
+            //             }
+            //
+            //             return this
+            //         },
+            //
+            //         render() {
+            //             return tpl
+            //         }
+            //     }
+            // },
+
+            // isPropertyChanged(obj, prop, val) {
+            //     obj['__propsSnap'] = obj['__propsSnap'] || {}
+            //
+            //     if (Lodash.isEqual(obj[prop], obj['__propsSnap'][prop])) {
+            //         return false
+            //     }
+            //
+            //     obj['__propsSnap'] = Lodash.cloneDeep(obj[prop])
+            //
+            //     return true
+            // }
+        }
+    })()
+    // ]]>
+</script>

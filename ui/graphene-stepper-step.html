@@ -1,0 +1,192 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../../polymer/polymer.html"/>
+<link rel="import" href="graphene-style.html"/>
+
+<dom-module id="graphene-stepper-step">
+    <template>
+        <style include="graphene-style"></style>
+
+        <style>
+            :host {
+                @apply --graphene-host;
+
+                display: flex;
+                height: auto;
+            }
+
+            #Step {
+                display: flex;
+                flex-direction: column;
+                align-items:    center;
+            }
+
+            #Marker {
+                display:  flex;
+                position: relative;
+
+                min-width:  32px;
+                min-height: 32px;
+
+                border-width:  1px;
+                border-style:  solid;
+                border-radius: 32px;
+                border-color:  var(--paper-grey-400);
+                color:         white;
+
+                justify-content: center;
+                align-items:     center;
+
+                transition: border-color .2s ease .2s;
+            }
+
+            :host([enabled]) #Marker {
+                border-color: var(--paper-light-green-a700);
+                color:        var(--paper-grey-700);
+            }
+
+            :host([valid]) #Marker {
+                color: white;
+            }
+
+            #Pulsar {
+                position: absolute;
+
+                width:  100%;
+                height: 100%;
+
+                top:    0;
+                left:   0;
+                right:  0;
+                bottom: 0;
+
+                border-radius: 2em;
+
+                background-color: var(--paper-grey-400);
+
+                transition:          transform;
+                transition-duration: .2s;
+            }
+
+            :host([enabled]:not([valid])) #Pulsar {
+                transform: scale(0);
+            }
+
+            :host([valid]) #Pulsar {
+                background-color: #666;
+
+                animation: markercolor .4s ease .4s;
+                animation-fill-mode: forwards;
+            }
+
+            #Name {
+                position: relative; /* Without it, Pulsar covers Name. */
+            }
+
+            #Tail {
+                flex-grow: 1;
+                width:  1px;
+                margin: 10px;
+                background-color: var(--paper-grey-100);
+            }
+
+            #Content {
+                /* We can not use flex otherwise overflow does not work. */
+                width: calc(100% - 32px);
+                padding-left: var(--graphene-gutter-s);
+
+                @apply --graphene-stepper-step-content;
+            }
+
+            :host([enabled]) #Content {
+                @apply --graphene-stepper-step-content-enabled;
+            }
+
+            :host(:not([enabled])) #Content {
+                filter: saturate(0%);
+                pointer-events: none;
+
+                @apply --graphene-stepper-step-content-disabled;
+            }
+
+            @-webkit-keyframes markercolor {
+                0%   { background-color: #666; }
+                100% { background-color: var(--paper-green-a400); }
+            }
+
+            @keyframes markercolor {
+                0%   { background-color: #666; }
+                100% { background-color: var(--paper-green-a400); }
+            }
+        </style>
+
+        <div id="Step">
+            <div id="Marker">
+                <div id="Pulsar"></div>
+                <div id="Name">[[ name ]]</div>
+            </div>
+            <div id="Tail"></div>
+        </div>
+
+        <div id="Content">
+            <slot></slot>
+        </div>
+    </template>
+
+    <script>
+        // <![CDATA[
+        ;(function (undefined) {
+            'use strict'
+
+            Polymer({
+                is: 'graphene-stepper-step',
+
+                properties: {
+                    name: {
+                        type: String,
+                    },
+
+                    enabled: {
+                        type: Boolean,
+                        value: false,
+                        notify: true,
+                        reflectToAttribute: true,
+                    },
+
+                    valid: {
+                        type: Boolean,
+                        value: false,
+                        notify: true,
+                        reflectToAttribute: true,
+                    },
+                },
+
+                listeners: {
+                    'graphene-widget-lifecycle-changed': '_grapheneWidgetLifecycleChangedListener',
+                },
+
+                //// Lifecycle callbacks. //////////////////////////////////////
+
+                //// Computers. ////////////////////////////////////////////////
+
+                //// Observers. ////////////////////////////////////////////////
+
+                //// Listeners. ////////////////////////////////////////////////
+
+                _grapheneWidgetLifecycleChangedListener(event, lifecycle) {
+                    this.enabled = lifecycle.enabled
+                    this.valid   = lifecycle.valid
+                },
+
+                //// Public APIs. //////////////////////////////////////////////
+
+                //// Internal APIs. ////////////////////////////////////////////
+            })
+        })()
+        // ]]>
+    </script>
+</dom-module>

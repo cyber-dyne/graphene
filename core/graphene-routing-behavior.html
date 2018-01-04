@@ -1,0 +1,157 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../../app-route/app-location.html"/>
+<link rel="import" href="../lib/lodash.html"/>
+<link rel="import" href="graphene-api.html"/>
+<link rel="import" href="graphene-browser-api.html"/>
+<link rel="import" href="graphene-elementlifecycle-behavior.html"/>
+<link rel="import" href="graphene-routing-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        Graphene.RoutingBehaviorInit = function (document, strategy) {
+            const appLocation = document.createElement('app-location')
+
+            if (strategy === 'hash') {
+                // We use url anchor as path.
+                appLocation.setAttribute('use-hash-as-path', '')
+            }
+
+            // app-location registers himself as default link-click listener in
+            // its 'attached' callback.
+            document.body.appendChild(appLocation)
+        }
+
+        /** @polymerBehavior */
+        Graphene.RoutingBehaviorImpl = {
+            properties: {
+                windowElement: {
+                    type: Element,
+                    value: Graphene.Browser.window,
+                    // Singleton property, shared between all instances.
+                },
+
+                routerElement: {
+                    type: Element,
+                    value: Graphene.RoutingBehaviorInit(
+                        Graphene.Browser.document,
+                        Graphene.Routing.strategy
+                    ),
+                    // Singleton property, shared between all instances.
+                },
+
+                routesMount: {
+                    type: String,
+                },
+
+                routes: {
+                    type: Object,
+                },
+            },
+
+            observers: [
+                '_windowElementObserver(windowElement, isAttached)',
+                // '_routerElementObserver(routerElement, isAttached)',
+            ],
+
+            //// Lifecycle callbacks. //////////////////////////////////////////
+
+            //// Computers. ////////////////////////////////////////////////////
+
+            //// Observers. ////////////////////////////////////////////////////
+
+            _windowElementObserver(windowElement, isAttached) {
+                if (Lodash.some(arguments, Lodash.isNil)) {
+                    return
+                }
+
+                // NOTE:
+                // No event is fired when the browser opens a page first time.
+
+                const action = isAttached ? 'listen' : 'unlisten'
+                const events = [
+                    'hashchange',       // Handles hash changes.
+                    'popstate',         // Handles Browser's Back Button and Graphene.Routing.route().
+                    'location-changed', // Handles clicks on links, thanks to app-location.
+                ]
+
+                events.forEach(event => this[action](windowElement, event, 'route'))
+            },
+
+            // _routerElementObserver(routerElement, isAttached) {
+            //     if (Lodash.some(arguments, Lodash.isNil)) {
+            //         return
+            //     }
+            //
+            //     const action = isAttached ? 'listen' : 'unlisten'
+            //     const events = [
+            //         'path-changed',
+            //         'route-changed',
+            //     ]
+            //
+            //     events.forEach(event => this[action](routerElement, event, 'route'))
+            // },
+
+            //// Listeners. ////////////////////////////////////////////////////
+
+            //// Public APIs. //////////////////////////////////////////////////
+
+            route() {
+                // In case it is undefined we can continue.
+                const path  = Graphene.Routing.currentRoute
+                const mount = this.routesMount
+
+                const regexp     = new RegExp(`^${mount}(/|$)`)
+                const mountMatch = path.match(regexp)
+
+                if (! mountMatch) {
+                    // The route mount point is not part of the route.
+                    // Example: routePath=/app/view1/action mount=/app/view2
+                    return
+                }
+
+                let matched = false
+
+                for (const pattern in this.routes) {
+                    const regexp = new RegExp(`^${mount}${pattern}$`)
+                    const match  = path.match(regexp)
+
+                    if (! match) {
+                        // The regexp doesn't match.
+                        // We can continue with the next one.
+                        continue
+                    }
+
+                    matched = true
+
+                    const handler = this.routes[pattern]
+                    const args    = match.splice(1)
+                    // match[0] is the whole match. We removed it because it is
+                    // not exactly an interesting argument for the handler.
+                    const callback = Lodash.isString(handler) ? this[handler] : handler
+
+                    callback.apply(this, args)
+                }
+
+                if (! matched && this.defaultRouter) {
+                    // In case no route matches current route path, we call
+                    // the fallback handler.
+                    this.defaultRouter()
+                }
+            },
+
+            //// Internal APIs. ////////////////////////////////////////////////
+        }
+
+        /** @polymerBehavior */
+        Graphene.RoutingBehavior = [ Graphene.ElementLifecycleBehavior, Graphene.RoutingBehaviorImpl ]
+    })()
+    // ]]>
+</script>

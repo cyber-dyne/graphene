@@ -1,0 +1,508 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../../iron-list/iron-list.html"/>
+<link rel="import" href="../../paper-dropdown-menu/paper-dropdown-menu.html"/>
+<link rel="import" href="../../paper-input/paper-input.html"/>
+<link rel="import" href="../../polymer/polymer.html"/>
+<link rel="import" href="../core/graphene-localize-behavior.html"/>
+<link rel="import" href="../lib/lodash.html"/>
+<link rel="import" href="graphene-dropdown-menu-behavior.html"/>
+<link rel="import" href="graphene-icons.html"/>
+<link rel="import" href="graphene-style.html"/>
+
+<dom-module id="graphene-dropdown-menu">
+    <template>
+        <style include="graphene-style"></style>
+
+        <style>
+            host {
+                display: block;
+            }
+
+            #List ::slotted(template ~ *),      /* Shadow DOM */
+            #List ::slotted(* > template ~ *) { /* Shady DOM  */
+                display: inline-block;  /* For vertical-align. */
+
+                padding: 0 var(--graphene-gutter-s);
+
+                line-height:    2.2em;
+                letter-spacing: -0.02em;
+                font-weight:    400;
+
+                vertical-align: middle;
+                overflow:       hidden;
+                text-overflow:  ellipsis;
+
+            }
+
+            #List ::slotted(template ~ [selected]),      /* Shadow DOM */
+            #List ::slotted(* > template ~ [selected]) { /* Shady DOM  */
+                color:            var(--graphene-dropdown-menu-selected-item-color);
+                background-color: var(--graphene-dropdown-menu-selected-item-background-color);
+            }
+
+            #List ::slotted(template ~ *:focus),      /* Shadow DOM */
+            #List ::slotted(* > template ~ *:focus) { /* Shady DOM  */
+                outline: none;
+                background-color: var(--graphene-dropdown-menu-focus-color);
+            }
+
+            #List ::slotted(template ~ *:hover),      /* Shadow DOM */
+            #List ::slotted(* > template ~ *:hover) { /* Shady DOM  */
+                background-color: var(--graphene-dropdown-menu-focus-color);
+            }
+
+            paper-dropdown-menu {
+                width: 100%;
+                --paper-input-container-underline: {
+                    border-bottom: 1px solid var(--paper-grey-200);
+                };
+                --paper-dropdown-menu-button: {
+                    /*
+                    * Fixes the
+                    * <span role="button"></span>
+                    * pushing down the <paper-menu-button> in Shady DOM.
+                    */
+                    float: left;
+                };
+            }
+
+            iron-list {
+                width:  var(--graphene-dropdown-menu-width,  400px);
+                height: var(--graphene-dropdown-menu-height, 400px);
+
+                background-color: var(--graphene-dropdown-menu-background-color);
+
+                cursor: pointer;
+
+                --iron-list-items-container: {
+                    font-size: 0.9em;
+
+                    color:            var(--graphene-dropdown-menu-color);
+                    background-color: var(--graphene-dropdown-menu-background-color);
+                };
+            }
+
+            #Filter {
+                /* <paper-input> */
+                width: var(--graphene-dropdown-menu-width, 400px);
+                padding: var(--graphene-gutter-xs) var(--graphene-gutter-s);
+                background-color: var(--graphene-dropdown-menu-background-color);
+
+                --paper-input-container-input: {
+                    padding: 5px 0;
+                };
+                --paper-input-container-underline: {
+                    border-bottom: 1px solid var(--paper-grey-200);
+                };
+                --paper-input-container-focus-color: var(--graphene-dropdown-menu-focus-color);
+            }
+
+            #Filter iron-icon[prefix] {
+                --iron-icon: {
+                    margin-right: var(--graphene-gutter-xs);
+                    color:        var(--paper-grey-500);
+                };
+            }
+        </style>
+
+        <paper-dropdown-menu id="Menu"
+                             label="[[ label ]]"
+                             vertical-align="[[ valign ]]"
+                             horizontal-align="[[ halign ]]"
+                             disabled="[[ disabled ]]">
+
+            <div id="Content" class="dropdown-content">
+                <paper-input id="Filter"
+                             value="{{ search }}"
+                             type="search"
+                             no-label-float
+                             hidden$="[[ ! filter ]]">
+                    <iron-icon icon="icons:search" prefix></iron-icon>
+                </paper-input>
+
+                <slot id="HeaderSlot" name="header"></slot>
+
+                <iron-list id="List"
+                           items="{{ filteredItems }}"
+                           selected-item="{{ selectedItem }}"
+                           selected-items="{{ selectedItems }}"
+                           selection-enabled
+                           multi-selection="[[ multi ]]">
+                    <slot id="ContentSlot"></slot>
+                </iron-list>
+
+                <slot id="FooterSlot" name="footer"></slot>
+            </div>
+
+        </paper-dropdown-menu>
+    </template>
+
+    <script>
+        // <![CDATA[
+        ;(function (undefined) {
+            'use strict'
+
+            Polymer({
+                is: 'graphene-dropdown-menu',
+
+                behaviors: [
+                    Graphene.DropdownMenuBehavior,
+                    Graphene.LocalizeBehavior,
+                ],
+
+                properties: {
+                    items: {
+                        type: Array,
+                    },
+
+                    itemAs: {
+                        type: String,
+                        value: 'item',
+                    },
+
+                    selectedItem: {
+                        type: Object,
+                        notify: true,
+                    },
+
+                    selectedItems: {
+                        type: Object,
+                        notify: true,
+                    },
+
+                    label: {
+                        type: String,
+                    },
+
+                    titleFormatter: {
+                        type: Function,
+                        value() {
+                            return (selectedItems) => {
+                                return selectedItems.map(item => item.name).join(', ')
+                            }
+                        },
+                    },
+
+                    multi: {
+                        type: Boolean,
+                        value: false,
+                        reflectToAttribute: true,
+                    },
+
+                    manualSelect: {
+                        type: Boolean,
+                        value: false,
+                    },
+
+                    filter: {
+                        type: Boolean,
+                        value: false,
+                    },
+
+                    filterFields: {
+                        type: Array,
+                        value() {
+                            return [ 'name' ]
+                        },
+                    },
+
+                    filteredItems: {
+                        type: Array,
+                    },
+
+                    search: {
+                        type: String,
+                    },
+
+                    maxHeight: {
+                        type: Number,
+                    },
+
+                    valign: {
+                        type: String,
+                        value: 'top',
+                    },
+
+                    halign: {
+                        type: String,
+                        value: 'left',
+                    },
+
+                    disabled: {
+                        type: Boolean,
+                        value: false,
+                        reflectToAttribute: true,
+                    },
+
+                    itemHeight: {
+                        type: Number,
+                    },
+                },
+
+                observers: [
+                    '_filteredItemsSetter(items, search)',
+
+                    '_autoSelectionObserver(items, filteredItems)',
+                    '_itemsSizeObserver(items, itemHeight, maxHeight)',
+
+                    '_selectedItemsObserver(selectedItems,        titleFormatter)',
+                    '_selectedItemsObserver(selectedItems.length, titleFormatter)',
+                ],
+
+                listeners: {
+                    'Menu.opened-changed': '_menuOpenedChangedListener',
+                },
+
+                //// Lifecycle callbacks. //////////////////////////////////////
+
+                ready() {
+                    // We need to monitor the Light DOM under Shady DOMs
+                    // to scope the styles of the nodes generated by the iron-list.
+                    this.scopeSubtree(this, true)
+
+                    this._filteredItemsSetter = Lodash.debounce(this._filteredItemsSetter, 400)
+                },
+
+                attached() {
+                    const contentSlot  = Polymer.dom(this.$.ContentSlot)
+                    const slotObserver = contentSlot.observeNodes(this._slotObserver.bind(this))
+
+                    this._slotObserverId = slotObserver
+                },
+
+                detached() {
+                    const contentSlot = Polymer.dom(this.$.ContentSlot)
+
+                    contentSlot.unobserveNodes(this._slotObserverId)
+                },
+
+                //// Computers. ////////////////////////////////////////////////
+
+                //// Observers. ////////////////////////////////////////////////
+
+                _autoSelectionObserver(items, filteredItems) {
+                    if (Lodash.some(arguments, Lodash.isNil)) {
+                        return
+                    }
+
+                    if (this.manualSelect === true) {
+                        return
+                    }
+
+                    if (items.length !== 1 || filteredItems.length !== 1) {
+                        return
+                    }
+
+                    const list = this.$.List
+                    list.selectItem(0)
+                },
+
+                _itemsSizeObserver(items, itemHeight, maxHeight) {
+                    if (Lodash.some(arguments, Lodash.isNil)) {
+                        return
+                    }
+
+                    if (itemHeight === 0) {
+                        return
+                    }
+
+                    const itemsSize   = items.length
+                    const itemsHeight = itemHeight * itemsSize
+                    const height      = Math.min(itemsHeight, maxHeight)
+                    // const width       = Math.min(itemWidth,   maxWidth)
+                    const list        = this.$.List
+
+                    list.style.height = height + 'px'
+                },
+
+                _selectedItemsObserver(selectedItemsChange, titleFormatter) {
+                    // Don't do this because selectedItemsChange is null when
+                    // multi is false and the user deselects the item.
+                    // if (Lodash.some(arguments, Lodash.isNil)) {
+                    //     return
+                    // }
+
+                    const selectedItems = Lodash.flatten([ this.selectedItems || [] ])
+                    const title         = titleFormatter(selectedItems)
+
+                    this._title(title)
+                },
+
+                _filteredItemsSetter(items, searchString) {
+                    const search      = searchString.trim()
+                    let selectedItems = Lodash.clone(this.selectedItems)
+
+                    if (search === '') {
+                        // Optimization
+                        this.filteredItems = items
+                        this._restoreSelectedItems(selectedItems)
+
+                        return
+                    }
+
+                    const searchLc      = search.toLowerCase()
+                    const filteredItems = items.filter(item => this._filterItem(item, searchLc), this)
+
+                    if (! Lodash.isNil(selectedItems)) {
+                        selectedItems = Array.isArray(selectedItems) ? selectedItems : [selectedItems]
+                    }
+
+                    this.filteredItems = Lodash.unionWith(filteredItems, selectedItems, Lodash.isEqual)
+
+                    this._restoreSelectedItems(selectedItems)
+                },
+
+                //// Listeners. ////////////////////////////////////////////////
+
+                _menuOpenedChangedListener(event, detail) {
+                    const node            = Polymer.dom(event).rootTarget    // Who fired the event.
+                    const isPaperDropdown = node.localName === 'paper-dropdown-menu'
+
+                    if (! isPaperDropdown) {
+                        return
+                    }
+
+                    const dropdownMenu = this.$.Menu
+                    const menuButton   = dropdownMenu.$$('paper-menu-button')
+                    const dropdown     = menuButton.$$('iron-dropdown')
+
+                    // iron-list are rendered only when visible, but the
+                    // iron-dropdown imposes display:none on the content (the
+                    // iron-list) resulting in an iron-list not rendered until
+                    // the iron-dropdown becomes visible, but at this point the
+                    // iron-dropdown has already computed its content
+                    // (iron-list) size which is zero.  We give a bit of time
+                    // to the iron-dropdown to display the iron-list and to the
+                    // iron-list to generate its content and, after that, we
+                    // inform the paper-dropdown-menu to recompute its content
+                    // size.
+                    this.async(() => dropdown.notifyResize, 400)
+
+                    const isOpenChange = detail.value
+                    const hasFilter    = this.filter !== undefined
+
+                    if (! isOpenChange || ! hasFilter) {
+                        return
+                    }
+
+                    function focusFilter() {
+                        const input = this.$.Filter.inputElement
+                        input.focus()
+                    }
+
+                    // We want to focus the filter input, with a delay due to the
+                    // dropdown content opening animation
+                    this.async(focusFilter.bind(this), 400)
+                },
+
+                //// Public APIs. //////////////////////////////////////////////
+
+                reset() {
+                    const list = this.$.List
+                    list.clearSelection()
+                },
+
+                selectItem(item) {
+                    const list = this.$.List
+                    list.selectItem(item)
+                },
+
+                //// Internal APIs. ////////////////////////////////////////////
+
+                _slotObserver(info) {
+                    // const children = this.getEffectiveChildren()
+                    const newNodes = info.addedNodes
+
+                    // Remember, template tags have height and width of 0.
+                    const items = newNodes.filter(node => node.nodeType === Element.ELEMENT_NODE)
+
+                    if (items.length === 0) {
+                        return
+                    }
+                    const size = { height: 0, width: 0 }
+
+                    items.forEach(item => {
+                        size.height = Math.max(item.offsetHeight, size.height, this.itemHeight || 0)
+                    })
+
+                    this.itemHeight = size.height
+                },
+
+                _title(value) {
+                    const target = this.$.Content
+
+                    if (value) {
+                        const itemNode = this.create('span', { label: value })
+
+                        this.fire('iron-select', {item: itemNode}, {node: target})
+                    } else {
+                        this.fire('iron-deselect', undefined, {node: target})
+                    }
+
+                    return this
+                },
+
+                _filterItem(item, search) {
+                    let itemText = ''
+                    const fields = this.filterFields
+
+                    function stringify(field) {
+                        // Prevents from searching into non existing fields
+                        if (item[field] === undefined) {
+                            return
+                        }
+
+                        itemText += item[field].toLowerCase()
+                    }
+
+                    fields.forEach(stringify)
+
+                    const index = itemText.indexOf(search)
+                    return index > -1
+                },
+
+                _restoreSelectedItems(selected) {
+                    if (Lodash.some(arguments, Lodash.isNil) || this.filteredItems.length === 0 || ! this.filter) {
+                        return
+                    }
+
+                    const list         = this.$.List
+                    const dropdownMenu = this.$.Menu
+                    const menuButton   = dropdownMenu.$$('paper-menu-button')
+
+                    const selectItem = (item) => {
+                        const index = Lodash(this.filteredItems).findIndex(item)
+
+                        if (index < 0) {
+                            return
+                        }
+
+                        const isMulti = this.$.List.multiSelection
+
+                        if (isMulti) {
+                            list.selectItem(index)
+                        } else {
+                            this.configurePaperMenuButton(menuButton, false)
+                            list.selectItem(index)
+                            this.configurePaperMenuButton(menuButton, true)
+                        }
+                    }
+
+                    if (! Array.isArray(selected)) {
+                        selectItem(selected)
+
+                        return
+                    }
+
+                    selected.forEach(selectItem.bind(this))
+                },
+            })
+        })()
+        // ]]>
+    </script>
+</dom-module>

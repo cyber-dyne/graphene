@@ -1,0 +1,99 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../lib/lodash.html"/>
+<link rel="import" href="graphene-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        // Polymer.Templatizer,
+
+        /** @polymerBehavior */
+        Graphene.DataBindingBehavior = {
+            properties: {
+                databindNodes: {
+                    type: Array,
+                },
+
+                databindProperties: {
+                    type: Array,
+                },
+            },
+
+            observers: [
+                '_databindNodesObserver(databindNodes)',
+                '_databindPropertiesObserver(databindProperties)',
+            ],
+
+            //// Lifecycle callbacks. //////////////////////////////////////////
+
+            //// Computers. ////////////////////////////////////////////////////
+
+            //// Observers. ////////////////////////////////////////////////////
+
+            _databindNodesObserver(databindNodes) {
+                if (! databindNodes) {
+                    return
+                }
+
+                databindNodes.forEach(this._addNodeBinding, this)
+            },
+
+            _databindPropertiesObserver(databindProperties) {
+                if (! databindProperties) {
+                    return
+                }
+
+                databindProperties.forEach(this._addPropertyBinding, this)
+            },
+
+            //// Listeners. ////////////////////////////////////////////////////
+
+
+            //// Public APIs. //////////////////////////////////////////////////
+
+            //// Internal APIs. ////////////////////////////////////////////////
+
+            _addNodeBinding(node) {
+                const properties = this.databindProperties
+
+                if (! properties) {
+                    return this
+                }
+
+                function monitorNodeProperty(property) {
+                    this._monitorNodeProperty(node, property)
+                }
+
+                properties.forEach(monitorNodeProperty, this)
+
+                return this
+            },
+
+            _addPropertyBinding(property) {
+                this._monitorLocalProperty(property)
+
+                const nodes = this.databindNodes
+
+                if (! nodes) {
+                    return this
+                }
+
+                function monitorNodeProperty(node) {
+                    this._monitorNodeProperty(node, property)
+                }
+
+                nodes.forEach(monitorNodeProperty, this)
+
+                return this
+            },
+        }
+    })()
+    // ]]>
+</script>

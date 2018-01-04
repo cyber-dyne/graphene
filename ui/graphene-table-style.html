@@ -1,0 +1,199 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="graphene-style.html"/>
+
+<dom-module id="graphene-table-style">
+    <template>
+        <style include="graphene-style"></style>
+
+        <style>
+            .Table {
+                font-size: 0.9em;
+                box-shadow: 0 1px 2px 0 #eaeaea,
+                            0 1px 3px 0 #eaeaea;
+                padding: var(--graphene-gutter-s) var(--graphene-gutter-l);
+            }
+
+            .Table paper-checkbox {
+                --paper-checkbox-size: 16px;
+            }
+
+            .Table-Row,
+            .Table-Header,
+            .Table-Footer {
+                display: flex;
+                width:  100%;
+                height: 50px;
+                border-bottom: 1px solid #f0f0f0;
+                align-items: center;
+            }
+
+            .Table-Row:hover {
+                border-bottom: 1px solid #f1f0ed;
+                background-color: var(--paper-grey-200);
+            }
+
+            .Table-Header {
+                font-weight: 600;
+                border-bottom: 1px solid #f1f0ed;
+                text-align:  center;
+                color: var(--paper-grey-500);
+                box-shadow: 0px 3px 6px -5px #aaa;
+            }
+
+            .Table-Body {
+                overflow-y: scroll;
+            }
+
+            .Table-Footer {
+                border: none;
+                box-shadow: 0px -4px 6px -5px #aaa;
+            }
+
+            .Table-Col {
+                display: flex;
+                flex: 1;
+                align-items:     center;
+                justify-content: center;
+                /*
+                * Don't use relative units like em otherwise using different
+                * font-size for header and rows alters even the padding
+                * resulting in misaligned elements.
+                */
+                padding-left:  0px;
+                padding-right: 0px;
+                min-width: 0;         /* To allow text-overflow: ellipsis work. */
+            }
+
+            .Table_justify-left {
+                 justify-content: flex-start;
+            }
+
+            .Table_justify-right {
+                 justify-content: flex-end;
+            }
+
+            .Table_span-1 {
+                flex: 1;
+            }
+
+            .Table_span-2 {
+                flex: 2;
+            }
+
+            .Table_span-3 {
+                flex: 3;
+            }
+
+            .Table_span-4 {
+                flex: 4;
+            }
+
+            .Table_span-10 {
+                flex: 10;
+            }
+
+            .Table_fix-xs {
+                flex: 0 0 var(--graphene-gutter-m);
+                max-width: var(--graphene-gutter-m);
+            }
+
+            .Table_fix-s {
+                flex: 0 0 100px;
+                max-width: 100px;
+            }
+
+            .Table_fix-m {
+                flex: 0 0 150px;
+                max-width: 150px;
+            }
+
+            .Table_fix-l {
+                flex: 0 0 200px;
+                max-width: 200px;
+            }
+
+            .Table_fix-xl {
+                flex: 0 0 250px;
+                max-width: 250px;
+            }
+
+            .Table-Filters {
+                display: flex;
+            }
+
+            .Table-Filter {
+                position: relative;
+                display: flex;
+
+                width:  10em;
+                height: 2em;
+
+                margin: 0 var(--graphene-gutter-s);
+
+                align-items: center;
+
+                font-weight: 400;
+                color: var(--paper-grey-700);
+            }
+
+            .Table-Filter-Panel {
+                position: absolute;
+
+                display: flex;
+
+                border-radius: .2em;
+                overflow: hidden;
+
+                off-border:       1px solid #eaeaea;
+                background-color: white;
+
+                transition:          box-shadow, border-radius;
+                transition-duration: .4s;
+            }
+
+            .Table-Filter .Label {
+                padding: .8em 2em;
+                background-color: var(--paper-grey-50);
+            }
+
+            .Table-Filter-List {
+                display: flex;
+                width: 0;
+
+                overflow: hidden;
+                align-items: center;
+
+                transition-property: width, background-color;
+                transition-duration: .4s;
+            }
+
+            .Table-Filter:hover .Table-Filter-List {
+                width: 100%;
+                background-color: var(--paper-grey-50);
+            }
+
+            .Table-Filter:hover .Table-Filter-Panel {
+                z-index: 1;
+                border-radius: .8em;
+                box-shadow: 0 8px 10px 1px rgba(0, 0, 0, 0.14),
+                            0 3px 14px 2px rgba(0, 0, 0, 0.12),
+                            0 5px 5px -3px rgba(0, 0, 0, 0.4);
+                box-shadow: 1px 3px 7px  0 rgba(0,0,0,.1),
+                            0px 0px 20px 0 rgba(0,0,0,.2);
+                box-shadow: 1px 3px 7px  0 rgba(0,0,0,.1);
+            }
+
+            .Table-Filter-List > * {
+                display: flex;
+                margin-left:  var(--graphene-gutter-s);
+                margin-right: var(--graphene-gutter-s);
+                align-items: center;
+            }
+        </style>
+    </template>
+</dom-module>

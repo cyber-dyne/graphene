@@ -1,0 +1,12 @@
+{
+        "sources": [
+                "core/**/*.html",
+                "lib/**/*.html",
+                "ui/**/*.html"
+        ],
+        "fragments": [],
+        "lint": {
+                "rules": [ "polymer-1" ],
+                "ignoreWarnings": []
+        }
+}

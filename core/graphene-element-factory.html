@@ -1,0 +1,239 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../../polymer/polymer.html"/>
+<link rel="import" href="graphene-elementfactory-api.html"/>
+
+<dom-module id="graphene-element-factory">
+    <template>
+        <style>
+            :host {
+                display: block;
+                width:  100%;
+                height: 100%;
+            }
+        </style>
+    </template>
+
+    <script>
+        // <![CDATA[
+        ;(function (undefined) {
+            'use strict'
+
+            Polymer({
+                is: 'graphene-element-factory',
+
+                properties: {
+                    isReady: {
+                        type: Boolean,
+                    },
+
+                    factoryElement: {
+                        type: String,
+                    },
+
+                    factoryProps: {
+                        type: Array,
+                        value: [],
+                    },
+
+                    factoryInstance: {
+                        type: Object,
+                        notify: true,
+                        readOnly: true,
+                    },
+
+                    factoryInstanced: {
+                        type: Boolean,
+                        notify: true,
+                        reflectToAttribute: true,
+                        computed: '_factoryInstancedComputer(factoryInstance)',
+                    },
+
+                    // This has the same behavior of 'disable-upgrade'.
+                    factoryDisabled: {
+                        type: Boolean,
+                        value: false,
+                        reflectToAttribute: true,
+                    },
+                },
+
+                observers: [
+                    '_elementPropsObserver(factoryElement, factoryProps, factoryDisabled, isReady)',
+                ],
+
+                //// Lifecycle callbacks. //////////////////////////////////////
+
+                ready() {
+                    this._nodePropertyListener = this._nodePropertyListener.bind(this)
+
+                    this.isReady = true
+                },
+
+                //// Computers. ////////////////////////////////////////////////
+
+                _factoryInstancedComputer(factoryInstance) {
+                    const instanced = factoryInstance !== undefined
+
+                    return instanced
+                },
+
+                //// Observers. ////////////////////////////////////////////////
+
+                _elementPropsObserver(factoryElement, factoryProps, factoryDisabled, isReady) {
+                    if (Lodash.some(arguments, Lodash.isNil)) {
+                        return
+                    }
+
+                    if (isReady !== true) {
+                        // We must be ready to access the DOM.
+                        return
+                    }
+
+                    const root = Polymer.dom(this.root)
+                    const node = this.factoryNode
+
+                    if (node && factoryDisabled === true) {
+                        this._setFactoryInstance(undefined)
+                        // User has requested to disable the factory. We remove
+                        // the previously created element.
+                        root.removeChild(node)
+
+                        return // STOP
+                    }
+
+                    if (factoryDisabled === true) {
+                        // Same of 'disable-upgrade'. User has requested to
+                        // postpone the element creation.
+                        return // STOP
+                    }
+
+                    if (node && node.localName === factoryElement) {
+                        // We have already an element instance. The factory
+                        // properties have changed.
+
+                        // We setup the two-way data binding.
+                        this._bindNodeProperties(instance, factoryProps)
+
+                        return // STOP
+                    }
+
+                    if (node) {
+                        this._setFactoryInstance(undefined)
+                        // User has requested to create a new element. We remove
+                        // previously created one.
+                        root.removeChild(node)
+                    }
+
+                    // From 'my-element-path/my-element' to 'my-element'.
+                    const name = Graphene.ElementFactory.name(this.factoryElement)
+
+                    // We propagate the properties values set on this factory
+                    // instance down to the created element.
+                    const properties = Lodash.zipObject(
+                        factoryProps,
+                        factoryProps.map(prop => this[prop])
+                    )
+
+                    // We create the element with the properties initialized
+                    // with the values set on this factory instance.
+                    const instance = this.create(name, properties)
+
+                    // We inform/notify our parent of the new created instance.
+                    this._setFactoryInstance(instance)
+
+                    // We setup the two-way data binding.
+                    this._bindNodeProperties(instance, factoryProps)
+
+                    // Time to actually append the instance in the Local DOM.
+                    root.appendChild(instance)
+                },
+
+                //// Listeners. ////////////////////////////////////////////////
+
+                //// Public APIs. //////////////////////////////////////////////
+
+                get factoryNode() {
+                    // We need to wrap the root with Polymer otherwise on Safari
+                    // trying to access children directly raises
+                    // TypeError: undefined is not a function
+                    // when using the native spread operator.
+                    const root     = Polymer.dom(this.root)
+                    const children = [ ...root.children ]  // From HTMLCollection to Array.
+                    const node     = children.filter(c => c.localName !== 'style').pop()
+
+                    return node
+                },
+
+                //// Internal APIs. ////////////////////////////////////////////
+
+                _bindNodeProperties(node, properties) {
+                    properties.forEach(this._defineProperty, this)
+                    properties.forEach(prop => this._listenNodeProperty(node, prop))
+
+                    return this
+                },
+
+                _defineProperty(property) {
+                    const hostValue = this[property]
+                    const hostProp  = `_${property}`
+                    this[hostProp]  = hostValue
+
+                    Object.defineProperty(this, property, {
+                        get() {
+                            const el        = this.factoryInstance
+                            const elValue   = el && el[property]
+                            const hostValue = this[hostProp]
+                            const value     = el !== undefined ?
+                                // When the element instance is available we return
+                                // its value.
+                                elValue
+                            :
+                                // When the element instance is not yet created
+                                // or has been removed, we return its property
+                                // counterpart stored in a private host property.
+                                hostValue
+
+                            return value
+                        },
+
+                        set(value) {
+                            // We store a copy of the value in the factory
+                            // private property for later use, for example when
+                            // we are requested to create the instance of the
+                            // element and we have to initialize its properties
+                            // with this value.
+                            this[hostProp] = value
+
+                            if (this.factoryInstance !== undefined) {
+                                // The element instance has been created. We
+                                // propagate the set down to the node.
+                                this.factoryInstance[property] = value
+                            }
+                        },
+                    })
+                },
+
+                _listenNodeProperty(node, property) {
+                    const dashProp    = Polymer.CaseMap.camelToDashCase(property)
+                    const event       = `${dashProp}-changed`
+                    // Don't use CustomEvent because it is not triggered.
+
+                    // this._nodePropertyListener is already bound to this.
+                    node.addEventListener(event, this._nodePropertyListener)
+                },
+
+                _nodePropertyListener(event) {
+                    const detail     = event.detail
+                    const type       = event.type   // '{prop}-{name}-changed'
+
+                    this.fire(type, detail, { bubbles: true })
+                },
+            })
+        })()
+        // ]]>
+    </script>
+</dom-module>

@@ -1,0 +1,120 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../../paper-styles/color.html"/>
+<link rel="import" href="../../paper-styles/shadow.html"/>
+<link rel="import" href="../../paper-styles/typography.html"/>
+
+<!--
+<style>
+    @font-face {
+            font-family: 'Graphene Thin';
+            src: url('fonts/Gotham-Thin.ttf') format('truetype');
+    }
+
+    @font-face {
+            font-family: 'Graphene Light';
+            src: url('fonts/Gotham-Light.ttf') format('truetype');
+    }
+
+    @font-face {
+            font-family: 'Graphene Regular';
+            src: url('fonts/Gotham-Regular.ttf') format('truetype');
+    }
+
+    @font-face {
+            font-family: 'Graphene Bold';
+            src: url('fonts/Gotham-Bold.ttf') format('truetype');
+    }
+</style>
+-->
+
+<dom-module id="graphene-style">
+    <template>
+        <style>
+            :host {
+                /* font-family: 'Graphene Light'; */
+                @apply --paper-font-common-base;
+                @apply --paper-font-common-expensive-kerning;
+                @apply --paper-font-common-nowrap;
+
+                font-weight: 100;
+                color: #333;
+
+                --graphene-gutter-xs: 10px;
+                --graphene-gutter-s:  20px;
+                --graphene-gutter-m:  40px;
+                --graphene-gutter-l:  60px;
+                --graphene-gutter-xl: 80px;
+
+                --graphene-viewport: 1600px;
+
+                --graphene-host: {
+                    display: block;
+                    width:  100%;
+                    height: 100%;
+                    /*
+                    * Paper by default hides overflow.
+                    * We need to change this default because some elements
+                    * use position absolute and the overflow to show up things
+                    * over their borders.
+                    */
+                    overflow: visible;
+                };
+
+                --graphene-card: {
+                    padding:          var(--graphene-gutter-m);
+                    border-radius:    4px 4px 0 0;
+                    box-shadow:       0px 2px 3px 0px #d6d6d6;
+                    background-color: white;
+                };
+            }
+
+            *,
+            :host {
+                box-sizing: border-box;
+                font-size: 1em;         /* 1em or 100% */
+                /* font-size: 1vw; */
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+            }
+
+            /*
+            *, *:before, *:after {
+                margin:     inherit;
+                padding:    inherit;
+                box-sizing: inherit;
+            }
+            */
+
+            span, ul, li {
+                display: inline-block;
+            }
+
+            ul, li {
+                margin: 0;
+                padding: 0;
+            }
+
+            li {
+                list-style: none;
+            }
+
+            [hidden] {
+                display: none !important;
+            }
+
+            /*
+                Safari's contacts auto-fill icon appears when not necessary, we
+                destroy it programmatically.
+            */
+            input[autocomplete="off"]::-webkit-contacts-auto-fill-button {
+                display: none !important;
+                pointer-events: none;
+            }
+        </style>
+    </template>
+</dom-module>

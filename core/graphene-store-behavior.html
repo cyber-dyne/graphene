@@ -1,0 +1,109 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../lib/lodash.html"/>
+<link rel="import" href="graphene-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        /** @polymerBehavior */
+        Graphene.StoreBehavior = {
+            properties: {
+                store: {
+                    type: Object,
+                },
+
+                storeState: {
+                    type: Object,
+                },
+
+                storePlugins: {
+                    type: Array,
+                },
+
+                storeMutators: {
+                    type: Object,
+                },
+
+                storeReducers: {
+                    type: Object,
+                },
+
+                storeActions: {
+                    type: Object,
+                },
+
+                storeGetters: {
+                    type: Object,
+                },
+
+                isAttached: {
+                    type: Boolean,
+                },
+            },
+
+            observers: [
+                '_storeObserver(store, isAttached)',
+                '_storeStateObserver(store, storeState)',
+                '_storeCollectionObserver(store, "plugins",  storePlugins,  isAttached)',
+                '_storeCollectionObserver(store, "mutators", storeMutators, isAttached)',
+                '_storeCollectionObserver(store, "reducers", storeReducers, isAttached)',
+                '_storeCollectionObserver(store, "actions",  storeActions,  isAttached)',
+                '_storeCollectionObserver(store, "getters",  storeGetters,  isAttached)',
+            ],
+
+            //// Lifecycle callbacks. //////////////////////////////////////////
+
+            attached() {
+                this.isAttached = true
+            },
+
+            detached() {
+                this.isAttached = false
+            },
+
+            //// Computers. ////////////////////////////////////////////////////
+
+            //// Observers. ////////////////////////////////////////////////////
+
+            _storeObserver(store, isAttached) {
+                // We must be at least ready to register as observer,
+                // otherwise we can be called before being fully initialized.
+                this._storeCollectionObserver(store, 'observers', [this], isAttached)
+            },
+
+            _storeStateObserver(store, storeState) {
+                // This observer must be implemented by the elements.
+            },
+
+            _storeCollectionObserver(store, collectionName, items, isAttached) {
+                if (Lodash.some(arguments, Lodash.isNil)) {
+                    return
+                }
+
+                const collection = store[collectionName]
+                const action     = (isAttached === true) ? 'add' : 'remove'     // When attached add, otherwise remove.
+                const args       = Array.isArray(items)  ? items : [ items ]    // Array or Array with one object.
+
+                collection[action](...args)
+            },
+
+            //// Listeners. ////////////////////////////////////////////////////
+
+            //// Public APIs. //////////////////////////////////////////////////
+
+            stateDidChange(state) {
+                this.storeState = state
+            },
+
+            //// Internal APIs. ////////////////////////////////////////////////
+        }
+    })()
+    // ]]>
+</script>

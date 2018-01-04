@@ -1,0 +1,188 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../lib/lodash.html"/>
+<link rel="import" href="graphene-api.html"/>
+<link rel="import" href="graphene-logger-api.html"/>
+<link rel="import" href="graphene-store-behavior.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        /** @polymerBehavior */
+        Graphene.StoreModelBehaviorImpl = {
+            properties: {
+                model: {
+                    type: Object,
+                    value: Lodash.stubObject,
+                    notify: true,
+                },
+
+                modelStatePath: {
+                    type: String,
+                },
+
+                modelMutators: {
+                    type: Array,
+                    computed: '_modelMutatorsComputer(SET_MODEL, modelMutator)',
+                },
+
+                mutateStateWithModel: {
+                    type: Function,
+                    computed: '_mutateStateWithModelComputer(store, SET_MODEL, modelStatePath, modelChangePathRegexes)',
+                },
+
+                SET_MODEL: {
+                    type: Symbol,
+                    value() {
+                        const desc   = `SET_MODEL#${this.localName}`
+                        const symbol = Symbol(desc)
+
+                        return symbol
+                    },
+                },
+
+                modelMutator: {
+                    type: Function,
+                    value() {
+                        return (prevState, modelChange, modelStatePath, modelChangePathRegexes) => {
+                            const {
+                                beginsWithModel,
+                                arrayIndex,
+                                endsWithSplices
+                            } = modelChangePathRegexes
+
+                            const modelChangeValue = modelChange.value
+                            const modelChangePath  = modelChange.path
+                            const isSplice         = (modelChangePath.match(endsWithSplices) !== null)
+                            const changes          = {}
+                            const changePath       = modelChangePath        // FROM         TO
+                                .replace(beginsWithModel, modelStatePath)   // model.       stateRoot.path.
+                                .replace(arrayIndex, '[$1]')                // #1           [1]
+                                .replace(endsWithSplices, '')               // .splices     ''
+
+                            changes[changePath] = modelChangeValue
+
+                            if (isSplice) {
+                                // The splice change notification has as change value
+                                // the description of the happened splice but not
+                                // the whole array. We must retrieve the whole
+                                // array instead.
+                                // FROM model.something.splices
+                                //   TO model.something
+                                const modelValuePath = modelChangePath.replace(endsWithSplices, '')
+                                // The change notification has as root property 'base'
+                                // instead the change path has as root property 'model'.
+                                // We create a wrapper object with the 'model' property
+                                // pointing to the change base value.
+                                const model          = { model: modelChange.base }
+                                // We use the Polymer internal helper to get a value
+                                // from an object using a Polymer deep path.
+                                const modelValue     = this.get(modelValuePath, model)
+                                // The Polymer splice mutates the array inplace;
+                                // for the store this must be a new array, that's
+                                // why whe shallow clone the change value.
+                                changes[changePath] = Lodash.clone(modelValue)
+                            }
+
+                            Graphene.Logger.debug('Graphene.StoreModelBehavior:', modelChangePath, changes)
+
+                            return changes
+                        }
+                    },
+                },
+
+                modelChangePathRegexes: {
+                    type: Object,
+                    value: {
+                        beginsWithModel: /^model/,
+                        endsWithLength:  /\.length$/,
+                        endsWithSplices: /\.splices$/,
+                        arrayIndex:      /\.#(\d+)/,
+                    },
+                },
+
+                storeMutatorsAreReady: {
+                    type: Boolean,
+                },
+            },
+
+            observers: [
+                '_storeMutatorsSetter(store, modelMutators)',
+                '_stateModelObserver(storeMutatorsAreReady, model.*, mutateStateWithModel, modelChangePathRegexes)',
+            ],
+
+            //// Lifecycle callbacks. //////////////////////////////////////////
+
+            //// Computers. ////////////////////////////////////////////////////
+
+            _modelMutatorsComputer(SET_MODEL, modelMutator) {
+                if (Lodash.some(arguments, Lodash.isNil)) {
+                    return
+                }
+
+                return {
+                    [SET_MODEL]: modelMutator,
+                }
+            },
+
+            _mutateStateWithModelComputer(store, SET_MODEL, modelStatePath, modelChangePathRegexes) {
+                if (Lodash.some(arguments, Lodash.isNil)) {
+                    return
+                }
+
+                return (modelChange) => {
+                    store.commit(SET_MODEL, modelChange, modelStatePath, modelChangePathRegexes)
+                }
+            },
+
+            //// Observers. ////////////////////////////////////////////////////
+
+            _storeMutatorsSetter(store, modelMutators) {
+                if (Lodash.some(arguments, Lodash.isNil)) {
+                    return
+                }
+
+                // We register the mutators.
+                // TODO: We should de-registers old mutators.
+                store.mutators.add(modelMutators)
+
+                this.storeMutatorsAreReady = true
+            },
+
+            _stateModelObserver(storeMutatorsAreReady, modelChange, mutateStateWithModel, modelChangePathRegexes) {
+                if (Lodash.some(arguments, Lodash.isNil)) {
+                    return
+                }
+
+                const endsWithLength = modelChangePathRegexes.endsWithLength
+
+                switch (true) {
+                    case modelChange.base === undefined:
+                    // The mutators have not been registered inside the store yet.
+                    case storeMutatorsAreReady !== true:
+                    // We skip the .length Polymer notifications.
+                    case modelChange.path.match(endsWithLength) !== null:
+                        return
+                }
+
+                mutateStateWithModel(modelChange)
+            },
+
+            //// Listeners. ////////////////////////////////////////////////////
+
+            //// Public APIs. //////////////////////////////////////////////////
+
+            //// Internal APIs. ////////////////////////////////////////////////
+        }
+
+        /** @polymerBehavior */
+        Graphene.StoreModelBehavior = [ Graphene.StoreBehavior, Graphene.StoreModelBehaviorImpl ]
+    })()
+    // ]]>
+</script>

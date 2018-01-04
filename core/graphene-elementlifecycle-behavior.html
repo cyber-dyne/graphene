@@ -1,0 +1,84 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="graphene-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        /** @polymerBehavior */
+        Graphene.ElementLifecycleBehavior = {
+            properties: {
+                // These properties must not be undefined, othwerwise elements'
+                // observers are not executed.
+
+                isReady: {
+                    type: Boolean,
+                    value: false,
+                    notify: true,
+                },
+
+                isAttached: {
+                    type: Boolean,
+                    value: false,
+                    notify: true,
+                },
+
+                isDetached: {
+                    type: Boolean,
+                    value: true,
+                    notify: true,
+                },
+
+                elementLifecycle: {
+                    type: String,
+                    notify: true,
+                    computed: '_elementLifecycleComputer(isReady, isAttached, isDetached)',
+                },
+            },
+
+            //// Lifecycle callbacks. //////////////////////////////////////////
+
+            ready() {
+                this.isReady = true
+            },
+
+            attached() {
+                this.isDetached = false
+                this.isAttached = true
+            },
+
+            detached() {
+                this.isAttached = false
+                this.isDetached = true
+            },
+
+            //// Computers. ////////////////////////////////////////////////////
+
+            _elementLifecycleComputer(isReady, isAttached, isDetached) {
+                switch (true) {
+                    case isDetached:
+                        return 'detached'
+                    case isAttached:
+                        return 'attached'
+                    case isReady:
+                        return 'ready'
+                }
+            },
+
+            //// Observers. ////////////////////////////////////////////////////
+
+            //// Listeners. ////////////////////////////////////////////////////
+
+            //// Public APIs. //////////////////////////////////////////////////
+
+            //// Internal APIs. ////////////////////////////////////////////////
+        }
+    })()
+    // ]]>
+</script>

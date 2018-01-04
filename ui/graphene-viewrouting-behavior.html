@@ -1,0 +1,66 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../core/graphene-api.html"/>
+<link rel="import" href="../core/graphene-routing-api.html"/>
+<link rel="import" href="../core/graphene-routing-behavior.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        /** @polymerBehavior */
+        Graphene.ViewRoutingBehaviorImpl = {
+            properties: {
+                viewRoute: {
+                    type: String,
+                },
+            },
+
+            observers: [
+                '_viewRoutingViewLifecycleObserver(viewLifecycle)',
+            ],
+
+            //// Lifecycle callbacks. //////////////////////////////////////////
+
+            //// Computers. ////////////////////////////////////////////////////
+
+            //// Observers. ////////////////////////////////////////////////////
+
+            _viewRoutingViewLifecycleObserver(lifecycle) {
+                // We must set the route as soon as possible and we can't wait
+                // the appearing animation to complete. Why? Example:
+                // Scenario: Quick Views Selection.
+                // Given a view A which animates in 300 ms
+                //   and a view B which animates in 2 seconds
+                //   and the view A is selected,
+                //  When the user selects the view B
+                //   and quickly (less than 2 seconds) re-selects the view A
+                //  Then viewDidAppear() is called on view A and then on view B.
+                // Given the 'Quick Views Selection' scenario,
+                //    if we would not change the route as soon as possible
+                //  then the resulting route would be the route of the view B
+                //  even if the actual selected view is A.
+                if (lifecycle === 'appearing') {
+                    const route = this.viewRoute || this.routesMount
+
+                    Graphene.Routing.route(route)
+                }
+            },
+
+            //// Listeners. ////////////////////////////////////////////////////
+
+            //// Public APIs. //////////////////////////////////////////////////
+
+            //// Internal APIs. ////////////////////////////////////////////////
+        }
+
+        /** @polymerBehavior */
+        Graphene.ViewRoutingBehavior = [ Graphene.RoutingBehavior, Graphene.ViewRoutingBehaviorImpl ]
+    })()
+    // ]]>
+</script>

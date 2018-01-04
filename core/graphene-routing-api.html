@@ -1,0 +1,180 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="graphene-api.html"/>
+<link rel="import" href="graphene-browser-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        Graphene.Routing = class
+        {
+            static get router()
+            {
+                switch (this.strategy) {
+                    case 'hash' :
+                        return Graphene.HashRouting
+                    case 'path':
+                        return Graphene.PathRouting
+                }
+
+                // undefined otherwise.
+            }
+
+            static get strategy()
+            {
+                const params          = Graphene.Browser.queryParams
+                const defaultRouting  = 'hash'
+                const manifestRouting = Graphene.ROUTING
+                const paramRouting    = params.routing
+                // The runtime query parameter has the maximum priority.
+                // User can request to change the routing.
+                const choices         = [ paramRouting, manifestRouting, defaultRouting ]
+                // Choices ordered from highest to lowest priority.
+                const routing         = choices.find(routing => !! routing)
+                // undefined, null and '' are false matches.
+
+                return routing
+            }
+
+            static routePath(...args)
+            {
+                const path = this.router.routePath(...args)
+
+                return path
+            }
+
+            static get currentRoute()
+            {
+                const route = this.router.currentRoute
+
+                return route
+            }
+
+            static get currentPath()
+            {
+                const path = this.router.currentPath
+
+                return path
+            }
+
+            static route(route, mountPoint='')
+            {
+                const path = this.routePath(route, mountPoint)
+
+                this.path = path
+
+                return this
+            }
+
+            static set path(path)
+            {
+                this.router.path = path
+            }
+        }
+
+        Graphene.HashRouting = class
+        {
+            static routePath(route, mountPoint='')
+            {
+                const path = '#' + mountPoint + route
+
+                return path
+            }
+
+            static get currentRoute()
+            {
+                const location = Graphene.Browser.location
+                const hash     = location.hash
+
+                // The hash path deprived of the leading '#/'.
+                // It begins with a '/' because every hash (even the empty one
+                // must begins with a '/').
+                const route = '/' + hash.substring(2)
+
+                return route
+            }
+
+            static get currentPath()
+            {
+                const location = Graphene.Browser.location
+                const hash     = location.hash
+
+                const path = hash
+
+                return path
+            }
+
+            static set path(path)
+            {
+                // The hash path deprived of the leading '#'.
+                const hash = path.substring(1)
+
+                location.hash = hash
+            }
+        }
+
+        Graphene.PathRouting = class
+        {
+            static routePath(route, mountPoint='')
+            {
+                const location = Graphene.Browser.location
+                const prefix   = Graphene.PREFIX
+                const search   = location.search
+                const hash     = location.hash
+
+                const path = prefix + mountPoint + route + search + hash
+
+                return path
+            }
+
+            static get currentRoute()
+            {
+                const location = Graphene.Browser.location
+                const prefix   = Graphene.PREFIX
+                const pathname = location.pathname
+
+                // The path deprived of the app prefix.
+                const route = pathname.replace(prefix, '')
+
+                return route
+            }
+
+            static get currentPath()
+            {
+                const location = Graphene.Browser.location
+                const pathname = location.pathname
+                const search   = location.search
+                const hash     = location.hash
+
+                const path = pathname + search + hash
+
+                return path
+            }
+
+            static set path(path)
+            {
+                const history     = Graphene.Browser.history
+                const window      = Graphene.Browser.window
+                const currentPath = this.currentPath
+
+                if (currentPath === path) {
+                    // We don't change the state triggering an event in case
+                    // current route path and requested route path are the same.
+                    return
+                }
+
+                history.pushState({}, undefined, path)
+                // history.pushState() doesn't trigger the 'popstate' event.
+                // We have to do it manually.
+                window.dispatchEvent(new Event('popstate'))
+            }
+        }
+    })()
+    // ]]>
+</script>

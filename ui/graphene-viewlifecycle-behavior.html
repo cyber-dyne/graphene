@@ -1,0 +1,66 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../core/graphene-api.html"/>
+<link rel="import" href="../core/graphene-logger-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        /** @polymerBehavior */
+        Graphene.ViewLifecycleBehavior = {
+            properties: {
+                viewLifecycle: {
+                    type: String,
+                    notify: true,
+                    reflectToAttribute: true,
+                },
+            },
+
+            observers: [
+                '_viewLifecycleObserver(viewLifecycle)',
+            ],
+
+            //// Lifecycle callbacks. //////////////////////////////////////////
+
+            //// Computers. ////////////////////////////////////////////////////
+
+            //// Observers. ////////////////////////////////////////////////////
+
+            _viewLifecycleObserver(lifecycle) {
+                Graphene.Logger.debug('Graphene.ViewLifecycleBehavior:', this.localName+'@'+lifecycle)
+
+                let iface
+
+                switch (lifecycle) {
+                    case 'appearing':
+                        iface = 'viewWillAppear'
+                        break
+                    case 'appeared':
+                        iface = 'viewDidAppear'
+                        break
+                    case 'disappearing':
+                        iface = 'viewWillDisappear'
+                        break
+                    case 'disappeared':
+                        iface = 'viewDidDisappear'
+                        break
+                }
+
+                this[iface] && this[iface]()
+            },
+
+            //// Listeners. ////////////////////////////////////////////////////
+
+            //// Public APIs. //////////////////////////////////////////////////
+
+            //// Internal APIs. ////////////////////////////////////////////////
+        }
+    })()
+    // ]]>
+</script>

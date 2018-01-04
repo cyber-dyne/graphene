@@ -1,0 +1,118 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../../polymer/polymer.html"/>
+<link rel="import" href="graphene-icons.html"/>
+<link rel="import" href="graphene-style.html"/>
+
+<dom-module id="graphene-tooltip">
+    <template>
+        <style include="graphene-style"></style>
+
+        <style>
+            :host {
+                display: block;
+                overflow: visible;
+            }
+
+            #Tooltip {
+                position: relative;
+                display: flex;
+                flex-direction: column;
+            }
+
+            #Tooltip-Icon {
+                align-self: flex-end;
+                color: var(--paper-grey-300);
+                --iron-icon-width:  var(--graphene-tooltip-icon-width, 1em);
+                --iron-icon-height: var(--graphene-tooltip-icon-height, 1em);
+            }
+
+            #Tooltip-Content {
+                position: absolute;
+                z-index: 1;
+
+                max-height: 0;
+                opacity:    0;
+                overflow:   hidden;
+
+                white-space: normal;
+                word-wrap:   break-word;
+
+                transition:          opacity, margin-top;
+                transition-duration: .3s;
+
+                @apply --graphene-tooltip-content;
+            }
+
+            #Tooltip-Text {
+                font-size:      0.8em;
+                letter-spacing: -0.02em;
+                text-align:     justify;
+
+                padding:        var(--graphene-gutter-s);
+
+                color:         white;
+                background:    #bdb3b3;
+                border-radius: 4px;
+            }
+
+            #Tooltip:hover #Tooltip-Icon {
+                color: var(--paper-grey-400);
+            }
+
+            #Tooltip:hover #Tooltip-Content {
+                max-height:  300px;
+                margin-top:  1em;
+                padding-top: var(--graphene-gutter-xs);
+
+                opacity:    1;
+                overflow:   scroll;
+            }
+        </style>
+
+        <div id="Tooltip">
+            <iron-icon id="Tooltip-Icon" icon="[[ icon ]]"></iron-icon>
+            <div id="Tooltip-Content">
+                <div id="Tooltip-Text">
+                    <slot></slot>
+                </div>
+            </div>
+        </div>
+
+    </template>
+
+    <script>
+        // <![CDATA[
+        ;(function (undefined) {
+            'use strict'
+
+            Polymer({
+                is: 'graphene-tooltip',
+
+                properties: {
+                    icon: {
+                        type: String,
+                        value: 'icons:info-outline',
+                    },
+                },
+
+                //// Lifecycle callbacks. //////////////////////////////////////
+
+                //// Computers. ////////////////////////////////////////////////
+
+                //// Observers. ////////////////////////////////////////////////
+
+                //// Listeners. ////////////////////////////////////////////////
+
+                //// Public APIs. //////////////////////////////////////////////
+
+                //// Internal APIs. ////////////////////////////////////////////
+            })
+        })()
+        // ]]>
+    </script>
+</dom-module>

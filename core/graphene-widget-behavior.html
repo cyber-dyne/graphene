@@ -1,0 +1,86 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../../polymer/polymer.html"/>
+<link rel="import" href="../lib/lodash.html"/>
+<link rel="import" href="graphene-datastore-behavior.html"/>
+<link rel="import" href="graphene-localize-behavior.html"/>
+<link rel="import" href="graphene-rest-behavior.html"/>
+<link rel="import" href="graphene-store-api.html"/>
+<link rel="import" href="graphene-storemodel-behavior.html"/>
+<link rel="import" href="graphene-widgetlifecycle-behavior.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        /** @polymerBehavior */
+        Graphene.WidgetBehaviorImpl = {
+            properties: {
+                widgetId: {
+                    type: String,
+                    value() {
+                        return this.localName
+                    },
+                },
+
+                modelStatePath: { // From Graphene.StoreModelBehavior.
+                    computed: '_modelStatePathComputer(routesMount, widgetId)',
+                },
+            },
+
+            observers: [
+                '_validModelSetter(model, valid, widgetId)',
+            ],
+
+            //// Lifecycle callbacks. //////////////////////////////////////
+
+            //// Computers. ////////////////////////////////////////////////
+
+            _modelStatePathComputer(routesMount, widgetId) {
+                return `${routesMount}.${widgetId}`
+            },
+
+            //// Observers. ////////////////////////////////////////////////
+
+            _validModelSetter(model, valid, widgetId) {
+                if (Lodash.some(arguments, Lodash.isNil)) {
+                    return
+                }
+
+                this.set('model.@valid', valid)
+            },
+
+            //// Listeners. ////////////////////////////////////////////////
+
+            //// Public APIs. //////////////////////////////////////////////
+
+            widgetStateModel(state, widget) {
+                const modelStatePath       = this.modelStatePath                // 'example.a-widget'
+                const lastIndex            = modelStatePath.lastIndexOf('.')
+                const parentStatePath      = modelStatePath.slice(0, lastIndex) // 'example'
+                const widgetStateModelPath = `${parentStatePath}.${widget}`     // 'example.b-widget'
+                const widgetStateModel     = Lodash.get(state, widgetStateModelPath)
+
+                return widgetStateModel
+            },
+
+            //// Internal APIs. ////////////////////////////////////////////
+        }
+
+        /** @polymerBehavior */
+        Graphene.WidgetBehavior = [
+            Graphene.DatastoreBehavior,
+            Graphene.LocalizeBehavior,
+            Graphene.RestBehavior,
+            Graphene.StoreModelBehavior,
+            Graphene.WidgetLifecycleBehavior,
+            Graphene.WidgetBehaviorImpl,
+        ]
+    })()
+    // ]]>
+</script>

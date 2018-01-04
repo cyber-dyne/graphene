@@ -1,0 +1,54 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../lib/lodash.html"/>
+<link rel="import" href="graphene-api.html"/>
+<link rel="import" href="graphene-store-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        const { reducers, getters } = Graphene.Store
+
+        const LOAD_COLLECTION = Symbol('Graphene.DatastorePlug.LOAD_COLLECTION')
+        const SET_COLLECTION  = Symbol('Graphene.DatastorePlug.SET_COLLECTION')
+
+        Graphene.DatastorePlug = {
+            // API used to request the load of a datastore collection.
+            // It must implemented by the actual datastore plug as an action.
+            LOAD_COLLECTION: LOAD_COLLECTION,
+            // API used to set the content of a datastore collection.
+            SET_COLLECTION:  SET_COLLECTION,
+
+            [reducers]: {
+                [SET_COLLECTION]: setCollection,
+            },
+
+            [getters]: {
+                datastoreCollection: function (state, getters, collectionName) {
+                    const collection = Lodash.get(state, ['datastore', collectionName])
+
+                    return collection
+                },
+            },
+        }
+
+        function setCollection(prevState, collectionName, collectionData) {
+            const { assign } = Object
+
+            const nextState = assign({}, prevState, {
+                datastore: assign({}, prevState.datastore, {
+                    [collectionName]: collectionData,
+                }),
+            })
+
+            return nextState
+        }
+    })()
+    // ]]>
+</script>

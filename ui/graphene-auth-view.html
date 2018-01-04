@@ -1,0 +1,458 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../../iron-form/iron-form.html"/>
+<link rel="import" href="../../paper-button/paper-button.html"/>
+<link rel="import" href="../../paper-card/paper-card.html"/>
+<link rel="import" href="../../paper-input/paper-input.html"/>
+<link rel="import" href="../../paper-spinner/paper-spinner.html"/>
+<link rel="import" href="../../polymer/polymer.html"/>
+<link rel="import" href="../core/graphene-logger-api.html"/>
+<link rel="import" href="../lib/lodash.html"/>
+<link rel="import" href="graphene-style.html"/>
+<link rel="import" href="graphene-viewanimation-behavior.html"/>
+
+<dom-module id="graphene-auth-view">
+    <template>
+        <style include="graphene-style"></style>
+
+        <style>
+            :host {
+                /*
+                * Host must define a display mode otherwise cannot be
+                * transformed (by CSS 'transform' and neon-animation).
+                */
+                display: block;
+                /* We expand filling the entire space reserved us. */
+                height: 100%;
+                width:  100%;
+            }
+
+            #BackgroundWithFilter,
+            #BackgroundWithSvg,
+            #Foreground {
+                height: inherit;
+                width:  inherit;
+            }
+
+            #BackgroundWithFilter {
+                /* background: url('../kimeme-app/assets/Logo-Kimeme.png') 50% 50% no-repeat; */
+                /*
+                * background-color must be defined after background:url
+                * otherwise it is overwritten.
+                */
+                background-color: #fffaf5;
+                filter: blur(10px) saturate(10%);
+            }
+
+            #BackgroundWithSvg {
+                position: absolute;
+                top:  0;
+                left: 0;
+            }
+
+            #BackgroundWithSvg svg {
+                width:  100%;
+                height: 100%;
+            }
+
+            #Foreground {
+                position: absolute;
+                top: 0;
+                display: flex;
+                align-items: center;
+            }
+
+            #SigninCard {
+                display: flex;
+                margin-left:  auto;
+                margin-right: auto;
+                flex-direction:  column;
+                justify-content: center;
+                align-items:     center;
+                background-color: rgba(255, 255, 255, 1);
+                box-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.1), 0 3px 1px -2px rgba(0, 0, 0, 0.1);
+            }
+
+            #SigninCard:hover {
+                box-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.2), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+            }
+
+            #SigninCard .card-header {
+                width: 100%;
+                padding-top: var(--graphene-gutter-l);
+                text-align: center;
+            }
+
+            #SigninCard .card-header span {
+                font-size: 3em;
+                color: #666;
+            }
+
+            /*
+            #SigninCompany {
+                font-weight: 900;
+                text-transform: uppercase;
+            }
+            */
+
+            #SigninCompany img {
+                height: 1.5em;
+            }
+
+            #SigninProduct {
+                font-weight: 100;
+                text-transform: capitalize;
+            }
+
+            #SigninCard .card-content {
+                display: flex;
+                padding: var(--graphene-gutter-m) var(--graphene-gutter-l) var(--graphene-gutter-l) !important;
+            }
+
+            #SigninCard .card-actions {
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                padding: var(--graphene-gutter-s) var(--graphene-gutter-l) !important;
+            }
+
+            .CardAside, .CardMain {
+                padding: var(--graphene-gutter-m);
+            }
+
+            .CardAside img, .CardContent {
+                width: 300px;
+            }
+
+            .CardAside {
+                border-right: 1px solid var(--paper-grey-100);
+            }
+
+            .CardActions {
+                text-align: right;
+            }
+
+            .CardStatus {
+                margin: var(--graphene-gutter-s) 0;
+                height: 1em;
+            }
+
+            .error-message,
+            .progress-message {
+                display: none;
+            }
+
+            .CardStatus[busy]    .progress-message,
+            .CardStatus[invalid] .error-message {
+                display: block;
+            }
+
+            .error-message {
+                padding: 0;
+                font-size: 0.9em;
+                font-weight: 400;
+                color: red;
+            }
+
+            .progress-message {
+                padding: 0;
+                font-size: 0.9em;
+                text-align: center;
+                color: var(--paper-light-blue-400);
+            }
+
+            paper-button {
+                padding-left:  1em;
+                padding-right: 1em;
+                text-transform: none;
+                color: white;
+            }
+
+            paper-button:not([disabled]) {
+                background-color: var(--paper-light-blue-400);
+            }
+
+            #SigninButton > span {
+                color: white;
+            }
+
+            paper-spinner {
+                display: none;
+                height: 1em;
+                width:  1em;
+                margin: 0;
+                /*
+                * We could use a paper-spinner-lite for one color spinner,
+                * but it has been done and it is here for future reference.
+                * --paper-spinner-layer-1-color: var(--paper-purple-500);
+                * --paper-spinner-layer-2-color: var(--paper-cyan-500);
+                * --paper-spinner-layer-3-color: var(--paper-red-500);
+                * --paper-spinner-layer-4-color: var(--paper-amber-500);
+                */
+                --paper-spinner-stroke-width: 2px;
+                --paper-spinner-layer-1-color: white;
+                --paper-spinner-layer-2-color: white;
+                --paper-spinner-layer-3-color: white;
+                --paper-spinner-layer-4-color: white;
+            }
+
+            paper-button[busy] > paper-spinner {
+                display: inline-block;
+                margin-right: 1em;
+            }
+        </style>
+
+        <div id="BackgroundWithSvg">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 810" preserveAspectRatio="xMinYMin slice" aria-hidden="true"><path fill="#efefee" d="M592.66 0c-15 64.092-30.7 125.285-46.598 183.777C634.056 325.56 748.348 550.932 819.642 809.5h419.672C1184.518 593.727 1083.124 290.064 902.637 0H592.66z"></path><path fill="#f6f6f6" d="M545.962 183.777c-53.796 196.576-111.592 361.156-163.49 490.74 11.7 44.494 22.8 89.49 33.1 134.883h404.07c-71.294-258.468-185.586-483.84-273.68-625.623z"></path><path fill="#f7f7f7" d="M153.89 0c74.094 180.678 161.088 417.448 228.483 674.517C449.67 506.337 527.063 279.465 592.56 0H153.89z"></path><path fill="#fbfbfc" d="M153.89 0H0v809.5h415.57C345.477 500.938 240.884 211.874 153.89 0z"></path><path fill="#ebebec" d="M1144.22 501.538c52.596-134.583 101.492-290.964 134.09-463.343 1.2-6.1 2.3-12.298 3.4-18.497 0-.2.1-.4.1-.6 1.1-6.3 2.3-12.7 3.4-19.098H902.536c105.293 169.28 183.688 343.158 241.684 501.638v-.1z"></path><path fill="#e1e1e1" d="M1285.31 0c-2.2 12.798-4.5 25.597-6.9 38.195C1321.507 86.39 1379.603 158.98 1440 257.168V0h-154.69z"></path><path fill="#e7e7e7" d="M1278.31,38.196C1245.81,209.874 1197.22,365.556 1144.82,499.838L1144.82,503.638C1185.82,615.924 1216.41,720.211 1239.11,809.6L1439.7,810L1439.7,256.768C1379.4,158.78 1321.41,86.288 1278.31,38.195L1278.31,38.196z"></path></svg>
+        </div>
+
+        <div id="Foreground">
+            <paper-card id="SigninCard" class="logo" elevation="0">
+                <div class="card-header">
+                    <!-- <span id="SigninCompany">Cyber Dyne</span> -->
+                    <!-- <span id="SigninProduct">planner</span> -->
+                    <span id="SigninCompany">
+                        <img id="SigninCompanyLogo" src$="[[ companyLogo ]]"/>
+                    </span>
+                </div>
+                <div class="card-content">
+                    <div id="SigninProduct" class="CardAside">
+                        <img id="SigninProductLogo" src$="[[ productLogo ]]"/>
+                    </div>
+                    <div class="CardMain">
+                        <form id="SigninForm" class="CardContent" is="iron-form">
+                            <paper-input name="name"
+                                         value="{{ user.id }}"
+                                         label="email"
+                                         required
+                                         auto-validate></paper-input>
+                             <paper-input name="password"
+                                          value="{{ user.secret }}"
+                                          label="password"
+                                          type="password"
+                                          required
+                                          auto-validate></paper-input>
+                        </form>
+                        <div class="CardStatus" busy$="[[ isBusy ]]" invalid$="[[ ! areValidCredentials ]]">
+                            <p class="progress-message">
+                                Authenticating... please wait.
+                            </p>
+                            <p class="error-message">
+                                Email or Password are invalid.
+                            </p>
+                        </div>
+                        <div class="CardActions">
+                            <paper-button id="SigninButton" raised disabled="[[ ! isValidForm ]]" busy$="[[ isBusy ]]">
+                                <paper-spinner active="[[ isBusy ]]"></paper-spinner>
+                                <span>Sign in</span>
+                            </paper-button>
+                        </div>
+                    </div>
+                </div>
+                <!-- <div class="card-actions"> -->
+                <!-- </div> -->
+            </paper-card>
+        </div>
+    </template>
+
+    <script>
+        // <![CDATA[
+        ;(function (undefined) {
+            'use strict'
+
+            Polymer({
+                is: 'graphene-auth-view',
+
+                behaviors: [
+                    Graphene.ViewAnimationBehavior,
+                ],
+
+                properties: {
+                    companyLogo: {
+                        type: String,
+                    },
+
+                    productLogo: {
+                        type: String,
+                    },
+
+                    adapter: {
+                        type: Object,
+                    },
+
+                    user: {
+                        type: Object,
+                        value() {
+                            // The user object must be filled with empty
+                            // values, otherwise the iron-form is marked as
+                            // invalid if its input values are undefined.
+                            return {
+                                id:     '',
+                                secret: '',
+                            }
+                        },
+                    },
+
+                    isBusy: {
+                        type: Boolean,
+                        value: false,
+                    },
+
+                    isValidForm: {
+                        type: Boolean,
+                        value: false,
+                    },
+
+                    areValidCredentials: {
+                        type: Boolean,
+                        value: true,
+                    },
+                },
+
+                listeners: {
+                    'SigninForm.input':    '_signinFormInputListener',
+                    'SigninForm.change':   '_signinFormChangeListener',
+                    'SigninForm.keypress': '_signinFormKeypressListener',
+                    'SigninButton.click':  '_signinButtonClickListener',
+                },
+
+                //// Lifecycle callbacks. //////////////////////////////////////
+
+                //// Computers. ////////////////////////////////////////////////
+
+                //// Observers. ////////////////////////////////////////////////
+
+                //// Listeners. ////////////////////////////////////////////////
+
+                _signinFormInputListener(event) {
+                    // When user starts typing we reset any previous
+                    // authentication attempt.
+                    this.areValidCredentials = true
+
+                    const inputs = this._getSigninFormInputs()
+
+                    this.isValidForm = Lodash.every(inputs, (input) => {
+                        // Each input field must be filled and valid.
+                        return input.value !== '' && ! input.invalid
+                    })
+                },
+
+                _signinFormChangeListener(event) {
+                },
+
+                _signinFormKeypressListener(event) {
+                    switch (event.keyCode) {
+                        case 13:    // Enter
+                            this.submit()
+                            break
+                    }
+                },
+
+                _signinButtonClickListener(event) {
+                    this.submit()
+                },
+
+                //// Public APIs. //////////////////////////////////////////////
+
+                validate() {
+                    this.isValidForm = this.$.SigninForm.validate()
+
+                    return this.isValidForm
+                },
+
+                submit() {
+                    // First, we validate the sign-in form. Validating
+                    // is reflected in the view which mutates accordingly.
+                    if (! this.validate()) {
+                        // In case it is not valid, we abort the submit
+                        // informing the caller.
+                        return false
+                    }
+
+                    // Sign-in form is valid, we can continue.
+
+                    this.setAsBusy()
+
+                    const userId     = this.user.id
+                    const userSecret = this.user.secret
+
+                    const promise    = this.adapter
+                        .authenticateCredentials(userId, userSecret)
+                        .then(this._authenticateCredentialsDidResolve.bind(this))
+                        .catch(this._authenticateCredentialsDidReject.bind(this))
+
+                    return promise
+                },
+
+                setAsBusy() {
+                    return this._setAsBusy(true)
+                },
+
+                setAsNotBusy() {
+                    return this._setAsBusy(false)
+                },
+
+                show() {
+                    this.removeAttribute('hidden')
+                },
+
+                hide() {
+                    this.setAttribute('hidden', '')
+                },
+
+                //// Internal APIs. ////////////////////////////////////////////
+
+                _getSigninFormInputs() {
+                    const root   = Polymer.dom(this.root)
+                    const inputs = root.querySelectorAll('paper-input')
+
+                    return inputs
+                },
+
+                _setAsBusy(isBusy) {
+                    this.isBusy = isBusy
+
+                    const inputs = this._getSigninFormInputs()
+
+                    inputs.forEach((input) => {
+                        // Each input field is disabled when we are busy.
+                        input.disabled = isBusy
+                    })
+
+                    return this
+                },
+
+                _authenticateCredentialsDidResolve(sessionToken) {
+                    this.setAsNotBusy()
+
+                    if (! sessionToken) {
+                        this.areValidCredentials = false
+
+                        // We resolve with undefined to indicate invalid credentials.
+                        return
+                    }
+
+                    this._fireAuthSucceeded(sessionToken)
+
+                    return sessionToken
+                },
+
+                _authenticateCredentialsDidReject(error) {
+                    this.setAsNotBusy()
+
+                    // We re-throw the promise rejection.
+                    return Promise.reject(error)
+                },
+
+                _fireAuthSucceeded(sessionToken) {
+                    this.fire('graphene-auth-succeeded', sessionToken)
+                },
+            })
+        })()
+        // ]]>
+    </script>
+</dom-module>

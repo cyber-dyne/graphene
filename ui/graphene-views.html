@@ -1,0 +1,404 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../../neon-animation/neon-animatable.html"/>
+<link rel="import" href="../../neon-animation/neon-animated-pages.html"/>
+<link rel="import" href="../../polymer/polymer.html"/>
+<link rel="import" href="../core/graphene-fn-api.html"/>
+<link rel="import" href="../core/graphene-logger-api.html"/>
+<link rel="import" href="../lib/lodash.html"/>
+
+<dom-module id="graphene-views">
+    <template>
+        <style>
+            :host {
+                display: block;
+                width:  100%;
+                height: 100%;
+            }
+
+            #Views {
+                width:  100%;
+                height: 100%;
+            }
+        </style>
+
+        <neon-animated-pages id="Views"
+                             attr-for-selected="[[ idAttr ]]"
+                             fallback-selection="[[ fallback ]]"
+                             animate-initial-selection>
+            <!--
+            <neon-animatable id="GrapheneEmptyView"
+                             animation-config="[[ emptyViewAnimation ]]">
+            </neon-animatable>
+            -->
+
+            <slot id="Slot"></slot>
+        </neon-animated-pages>
+    </template>
+
+    <script>
+        // <![CDATA[
+        ;(function (undefined) {
+            'use strict'
+
+            const on = Graphene.fn.invokeOn
+
+            Polymer({
+                is: 'graphene-views',
+
+                properties: {
+                    selected: {
+                        type: String,
+                    },
+
+                    selectedItem: {
+                        type: Object,
+                        notify: true,
+                        computed: '_selectedItemComputer(selected)',
+                    },
+
+                    fallback: {
+                        type: String,
+                    },
+
+                    idAttr: {
+                        type: String,
+                        value: 'id',
+                    },
+
+                    indexed: {
+                        type: Boolean,
+                        value: false,
+                    },
+
+                    history: {
+                        type: Array,
+                        value: Lodash.stubArray,
+                    },
+
+                    queue: {
+                        type: Array,
+                        value: Lodash.stubArray,
+                    },
+
+                    emptyView: {
+                        type: String,
+                        // value: '-1',
+                    },
+
+                    // emptyViewAnimation: {
+                    //     type: Object,
+                    //     value() {
+                    //         return {
+                    //             'entry': [
+                    //                 {
+                    //                     name: 'fade-in-animation',
+                    //                     timing: { duration: 300 },
+                    //                 },
+                    //             ],
+                    //             'exit': [
+                    //                 {
+                    //                     name: 'fade-out-animation',
+                    //                     timing: { duration: 40 },   // We try to stay inside an animation frame.
+                    //                 },
+                    //             ],
+                    //         }
+                    //     }
+                    // },
+                },
+
+                listeners: {
+                    'Views.neon-animation-finish': '_neonAnimationFinishOnViewsListener',
+                },
+
+                observers: [
+                    '_selectedObserver(selected)',
+                ],
+
+                //// Lifecycle callbacks. //////////////////////////////////////
+
+                ready() {
+                    // const emptyView = Polymer.dom(this.$.GrapheneEmptyView)
+
+                    // // The empty view is reachable passing an
+                    // // undefined/null/empty-string/empty-object
+                    // // which are converted to a '-1' id selector.
+                    // emptyView.setAttribute(this.idAttr, this.emptyView)
+
+                    // // We preselect the empty view to fix the neon-animated-pages
+                    // // glitch when transitioning from a 'false' state to an
+                    // // animatable view.
+                    // this.select(this.emptyView)
+                },
+
+                attached() {
+                    // We observe the Light DOM to set the fallback id for
+                    // children not carrying one.
+                    const slot       = Polymer.dom(this.$.Slot)
+                    this._observerId = slot.observeNodes(this._slotMonitor.bind(this))
+
+                    // We trigger a first execution as soon as possible otherwise
+                    // without the id items are not selectable.
+                    this._indexEffectiveChildren()
+                },
+
+                detached() {
+                    if (this._observerId) {
+                        Polymer.dom(this.$.Slot).unobserveNodes(this._observerId)
+                    }
+                },
+
+                //// Computers. ////////////////////////////////////////////////
+
+                _selectedItemComputer(selected) {
+                    // We can't simply use this.$.Views.selectedItem because
+                    // its value is changed asynchronously after the animation
+                    // completion, leading to wrong results in case of
+                    // consequent calls like these:
+                    // this.$.Views.selected = ...
+                    // ...
+                    // this.$.Views.selectedItem
+                    // Instead we retrieve the node by its id.
+                    const selectedItem = this.item(selected)
+
+                    return selectedItem
+                },
+
+                //// Observers. ////////////////////////////////////////////////
+
+                _selectedObserver(selected) {
+                    this._select(selected)
+                },
+
+                //// Listeners. ////////////////////////////////////////////////
+
+                _neonAnimationFinishOnViewsListener(event, detail) {
+                    const exitingView  = detail.fromPage
+                    const enteringView = detail.toPage
+
+                    this._continueExchange(exitingView, enteringView)
+                },
+
+                //// Public APIs. //////////////////////////////////////////////
+
+                selectPrevious() {
+                    const history      = this.history
+                    const selectedView = history.pop() // 1) We remove selected view (order matters).
+                    const previousView = history.pop() // 2) We remove previous view (order matters).
+                    // 'history' mutation is notified by this._select().
+
+                    if (previousView === undefined) {
+                        // We return undefined to indicate what happened.
+                        return
+                    }
+
+                    this._select(previousView)
+
+                    return previousView
+                },
+
+                item(id) {
+                    const selector = `[${this.idAttr}="${id}"]`
+
+                    // if (id === this.emptyView) {
+                    //     // The empty view is in our Local DOM / Shadow Root.
+                    //     return this.$$(selector)
+                    // }
+
+                    let selectedView = this.queryEffectiveChildren(selector)
+
+                    if (! selectedView) {
+                        // Item selection could fail because an attached view
+                        // could fire the event to select himself in its
+                        // ready/attached callbacks, but in this case the slot
+                        // observer had not a chance to index this attached
+                        // view resulting in the impossibility to retrieve it.
+                        // In this case we force an indexing of the effective
+                        // children and we give it a second chance.
+                        this._indexEffectiveChildren()
+
+                        selectedView = this.queryEffectiveChildren(selector)
+                    }
+
+                    return selectedView
+                },
+
+                //// Internal APIs. ////////////////////////////////////////////
+
+                _select(id) {
+                    Graphene.Logger.debug(this.localName + ': Selection requested for', id)
+
+                    this.queue.push(id)
+
+                    if (this.lock) {
+                        // The selection have been enqueued meaning there is
+                        // already at least one exchange in progress. We have
+                        // nothing to do so we can return.
+                        return
+                    }
+
+                    try {
+                        // No exchange is in progress. We can start consuming
+                        // the queue.
+                        this._consumeQueue()
+                    } catch (e) {
+                        // Something really bad happened to the view. We complete
+                        // the exchange (removing the view from the queue and
+                        // continuing the processing).
+                        Graphene.Logger.error(e)
+
+                        this._completeExchange()
+                    }
+                },
+
+                _viewLifecycle(view, lifecycle) {
+                    Lodash.set(view, 'viewLifecycle', lifecycle)
+
+                    return this
+                },
+
+                _consumeQueue() {
+                    if (this.queue.length === 0) {
+                        // Queue is empty, meaning there are no more pending
+                        // view changes to process. We can return.
+                        this.lock = false
+
+                        return
+                    }
+
+                    this.lock = true
+
+                    const id = this.queue[0]
+
+                    // There is at least one pending view change in the queue.
+                    // Let's perform the view exchange.
+
+                    Graphene.Logger.debug(this.localName + ': Exchange in progress for', id)
+
+                    const exitingView  = this.$.Views.queryEffectiveChildren('.iron-selected')
+                    const enteringView = this.item(id)
+                    // enteringView can be undefined in case the view has not been found.
+                    // It can happen in case user requests to select the empty
+                    // view which is not an actual DOM element.
+
+                    if (enteringView && enteringView.hasAttribute('disable-upgrade')) {
+                        // Whether the entering view has disabled the upgrade,
+                        // we upgrade the custom element and then we can continue.
+                        Graphene.Logger.debug(this.localName + ': Upgrading view', id)
+
+                        enteringView.removeAttribute('disable-upgrade')
+                    }
+
+                    this._viewLifecycle(exitingView,  'disappearing')
+                    this._viewLifecycle(enteringView, 'appearing')
+
+                    Graphene.Logger.debug(this.localName + ': Actually selecting view', id)
+
+                    // This starts a neon-animation which fires a
+                    // neon-animation-finish event leading to the
+                    // _continueExchange() call.
+                    this.$.Views.selected = id
+
+                    if (enteringView === undefined) {
+                        // neon-animated-pages doesn't change '._prevSelected'
+                        // property when '.selected' value doesn't match a child,
+                        // resulting in an animation interpolated between
+                        // current child and the previous-previous one (undefined)
+                        // with consequent glitches.
+                        this.$.Views._prevSelected = undefined
+                    }
+
+                    this.push('history', id)
+
+                    if (enteringView === undefined || enteringView.animationConfig === undefined) {
+                        // Whether the view doesn't exist or is not an animatable
+                        // view, it will not lead to a neon-animation-finish event.
+                        // We must continue the exchange manually.
+                        this._continueExchange(exitingView, enteringView)
+                    }
+                },
+
+                _continueExchange(exitingView, enteringView) {
+                    this._viewLifecycle(exitingView,  'disappeared')
+                    this._viewLifecycle(enteringView, 'appeared')
+
+                    this._completeExchange()
+                },
+
+                _completeExchange() {
+                    // We remove the exchanged view from the queue.
+                    this.queue.shift()
+
+                    // We read the queue looking for pending view changes.
+                    this._consumeQueue()
+                },
+
+                _indexEffectiveChildren() {
+                    const children = this.getEffectiveChildren()
+
+                    children.forEach(this._indexNode, this)
+
+                    return this
+                },
+
+                _indexNode(node) {
+                    const nodeName = node.nodeName
+
+                    if (nodeName === '#text' || nodeName === '#comment') {
+                        // We skip text and comment nodes.
+                        return this
+                    }
+
+                    const idAttr = this.idAttr
+                    const nodeId = node.getAttribute(idAttr)
+
+                    if (nodeId) {
+                        // The node has already an id, we have nothing to do.
+                        return this
+                    }
+
+                    const views = Polymer.dom(this.$.Views)
+
+                    const viewId = this.indexed ?
+                        // In case the user has requested views to be selectable
+                        // by index, the id is its position 0-indexed.
+                        views.children.length
+                    :
+                        // We use the element tag name as fallback identifier.
+                        node.localName
+
+                    node.setAttribute(idAttr, viewId)
+
+                    return this
+                },
+
+                _slotMonitor(info) {
+                    const addedNodes   = info.addedNodes
+                    const removedNodes = info.removedNodes
+
+                    addedNodes.forEach(this._indexNode, this)
+
+                    // if (this.selectedItem === undefined && this.selected) {
+                    //     // We could receive a request to select a view before
+                    //     // having the view node. In this case we must honor the
+                    //     // view selection as soon as the view node is distributed.
+
+                    //     // We save a reference to current selected view because
+                    //     // next call changes it.
+                    //     const selected = this.selected
+
+                    //     // We need to deselect current view...
+                    //     this._select(this.emptyView)
+                    //     // ...and reselect it.
+                    //     this._select(selected)
+                    // }
+                },
+            })
+        })()
+        // ]]>
+    </script>
+</dom-module>

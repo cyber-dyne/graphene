@@ -1,0 +1,58 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="graphene-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        /** @polymerBehavior */
+        Graphene.ContainerBehavior = {
+            properties: {
+                container: {
+                    type: Object,
+                },
+
+                containerServices: {
+                    type: Object,
+                },
+            },
+
+            observers: [
+                '_containerSetter(store)',
+                '_servicesSetter(container, containerServices)',
+            ],
+
+            //// Lifecycle callbacks. //////////////////////////////////////////
+
+            //// Computers. ////////////////////////////////////////////////////
+
+            //// Observers. ////////////////////////////////////////////////////
+
+            _containerSetter(store) {
+                this.container = store.container.adapter
+            },
+
+            _servicesSetter(container, containerServices) {
+                for (const serviceName in containerServices) {
+                    const id       = containerServices[serviceName]
+                    const instance = container.obtain(id)
+
+                    this[serviceName] = instance
+                }
+            },
+
+            //// Listeners. ////////////////////////////////////////////////////
+
+            //// Public APIs. //////////////////////////////////////////////////
+
+            //// Internal APIs. ////////////////////////////////////////////////
+        }
+    })()
+    // ]]>
+</script>

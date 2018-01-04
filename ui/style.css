@@ -1,0 +1,216 @@
+/*
+* Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+* This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+* The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+* The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+*/
+html, body {
+        height:  100%;
+        /* height:  100vh; */ /* It breaks Safari when using zoom. */
+        width:   100%;
+        max-width: 100%;        /* Hides overflow on mobile devices with a narrow viewport. */
+
+        border:  0;
+        margin:  0;
+        padding: 0;
+
+        font-size: 1em;         /* 1em or 100% */
+        /* font-size: 1vw; */
+        -webkit-font-smoothing: antialiased;
+        color: #333;
+}
+
+@media only screen and (max-width: 800px) {
+        html, body {
+                font-size: 0.8em;
+                /* font-size: 1vw; */
+        }
+}
+
+body {
+        /* Hides overflow on mobile devices with a narrow viewport.
+         * Don't use with the 'html' tag otherwise the page will not be
+         * scrollable.
+         */
+        overflow-x: hidden;
+}
+
+#Alfred {
+        display: flex;
+        width:  100%;
+        height: 100%;
+        justify-content: center;
+        align-items:     center;
+}
+
+/*
+* A page loading within 3 seconds can be considered fast. In this case we
+* should avoid displaying the animation to not clutter the interface.
+*/
+
+/********************************  SPINNER 1  *********************************/
+
+.Spinner-1 {
+        position: relative;
+        width:  64px;
+        height: 64px;
+}
+
+.Spinner-1 .spinner-obj-1,
+.Spinner-1 .spinner-obj-2 {
+        width:  100%;
+        height: 100%;
+        border-radius: 50%;
+        background-color: #666;
+        opacity: 0.6;
+        position: absolute;
+        top: 0;
+        left: 0;
+
+        -webkit-animation: sk-bounce 2.0s infinite ease-in-out;
+        animation: sk-bounce 2.0s infinite ease-in-out;
+}
+
+.Spinner-1 .spinner-obj-2 {
+        -webkit-animation-delay: -1s;
+        animation-delay: -1s;
+}
+
+@-webkit-keyframes sk-bounce {
+        0%, 100% { -webkit-transform: scale(0.0); }
+        50%      { -webkit-transform: scale(1.0); }
+}
+
+@keyframes sk-bounce {
+        0%, 100% {
+                transform: scale(0.0);
+                -webkit-transform: scale(0.0);
+        }
+        50% {
+                transform: scale(1.0);
+                -webkit-transform: scale(1.0);
+        }
+}
+
+/********************************  SPINNER 2  *********************************/
+
+.Spinner-2 {
+        width:  40px;
+        height: 40px;
+        margin: 40px;
+        /*
+         * Spinner positions
+         * 1 2 3
+         * 4 5 6
+         * 7 8 9
+         */
+}
+
+.Spinner-2 > * {
+        width:  33.33%;
+        height: 33.33%;
+        float: left;
+
+        background-color: #666;
+
+        -webkit-animation: gridscale 1.3s infinite ease-in-out;
+        animation:         gridscale 1.3s infinite ease-in-out;
+
+        /* Pretty cool but too much freaky. */
+        /*
+        background: #27c4f5;
+        -webkit-linear-gradient(left, #27c4f5, #a307ba, #fd8d32, #70c050, #27c4f5);
+        background: #27c4f5 linear-gradient(to right, #27c4f5, #a307ba, #fd8d32, #70c050, #27c4f5);
+
+        background-size: 500%;
+
+        -webkit-animation: gridscale 1.3s infinite ease-in-out, 2s linear infinite nyan;
+        animation:         gridscale 1.3s infinite ease-in-out, 2s linear infinite nyan;
+        */
+}
+
+.Spinner-2 .spinner-obj-1 {
+        -webkit-animation-delay: 0.2s;
+        animation-delay:         0.2s;
+}
+
+.Spinner-2 .spinner-obj-2 {
+        -webkit-animation-delay: 0.3s;
+        animation-delay:         0.3s;
+}
+
+.Spinner-2 .spinner-obj-3 {
+        -webkit-animation-delay: 0.4s;
+        animation-delay:         0.4s;
+}
+
+.Spinner-2 .spinner-obj-4 {
+        -webkit-animation-delay: 0.1s;
+        animation-delay:         0.1s;
+}
+
+.Spinner-2 .spinner-obj-5 {
+        -webkit-animation-delay: 0.2s;
+        animation-delay:         0.2s;
+}
+
+.Spinner-2 .spinner-obj-6 {
+        -webkit-animation-delay: 0.3s;
+        animation-delay:         0.3s;
+}
+
+.Spinner-2 .spinner-obj-7 {
+        -webkit-animation-delay: 0.0s;
+        animation-delay:         0.0s;
+}
+
+.Spinner-2 .spinner-obj-8 {
+        -webkit-animation-delay: 0.1s;
+        animation-delay:         0.1s;
+}
+
+.Spinner-2 .spinner-obj-9 {
+        -webkit-animation-delay: 0.2s;
+        animation-delay:         0.2s;
+}
+
+@-webkit-keyframes gridscale {
+        0%, 70%, 100% {
+                -webkit-transform: scale3D(1, 1, 1);
+                transform: scale3D(1, 1, 1);
+        }
+        35% {
+                -webkit-transform: scale3D(0, 0, 1);
+                transform: scale3D(0, 0, 1);
+        }
+}
+
+@keyframes gridscale {
+        0%, 70%, 100% {
+                -webkit-transform: scale3D(1, 1, 1);
+                transform: scale3D(1, 1, 1); }
+        35% {
+                -webkit-transform: scale3D(0, 0, 1);
+                transform: scale3D(0, 0, 1);
+        }
+}
+
+@-webkit-keyframes nyan {
+        from { background-position:   0% 0; }
+        to   { background-position: 125% 0; }
+}
+
+@keyframes nyan {
+        from { background-position:   0% 0; }
+        to   { background-position: 125% 0; }
+}
+
+@-webkit-keyframes fadein {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+}
+
+@keyframes fadein {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+}

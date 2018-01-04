@@ -1,0 +1,44 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="graphene-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        Graphene.Map = function () {
+            const keys = []
+            const vals = []
+
+            return {
+                put(key, val) {
+                    const index = keys.indexOf(key)
+
+                    if (index == -1) {
+                        keys.push(key)
+                        vals.push(val)
+
+                        return this
+                    }
+
+                    vals[index] = val
+
+                    return this
+                },
+
+                get(key) {
+                    const index = keys.indexOf(key)
+                    const val   = vals[index]
+
+                    return val
+                },
+            }
+        }
+    })()
+    // ]]>
+</script>

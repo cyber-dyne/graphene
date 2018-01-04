@@ -1,0 +1,69 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="graphene-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        /** @polymerBehavior */
+        Graphene.BusyBehavior = {
+            properties: {
+                // When greater than zero, we are busy.
+                bgJobs: {
+                    type: Number,
+                    value: 0,
+                },
+
+                isBusy: {
+                    type: Boolean,
+                    computed: '_isBusyComputer(bgJobs)',
+                    reflectToAttribute: true,
+                },
+            },
+
+            listeners: {
+                'graphene-busy-lock':    '_grapheneBusyLockListener',
+                'graphene-busy-release': '_grapheneBusyReleaseListener',
+            },
+
+            //// Lifecycle callbacks. //////////////////////////////////////////
+
+            //// Computers. ////////////////////////////////////////////////////
+
+            _isBusyComputer(bgJobs) {
+                const isBusy = bgJobs > 0
+
+                return isBusy
+            },
+
+            //// Observers. ////////////////////////////////////////////////////
+
+            //// Listeners. ////////////////////////////////////////////////////
+
+            _grapheneBusyLockListener(event, detail) {
+                event.stopPropagation()
+                event.preventDefault()
+
+                this.bgJobs += 1
+            },
+
+            _grapheneBusyReleaseListener(event, detail) {
+                event.stopPropagation()
+                event.preventDefault()
+
+                this.bgJobs -= 1
+            },
+
+            //// Public APIs. //////////////////////////////////////////////////
+
+            //// Internal APIs. ////////////////////////////////////////////////
+        }
+    })()
+    // ]]>
+</script>

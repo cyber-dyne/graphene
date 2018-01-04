@@ -1,0 +1,169 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../lib/lodash.html"/>
+<link rel="import" href="graphene-api.html"/>
+<link rel="import" href="graphene-datastore-plug.html"/>
+<link rel="import" href="graphene-store-behavior.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        /** @polymerBehavior */
+        Graphene.DatastoreBehaviorImpl = {
+            properties: {
+                datastore: {
+                    type: Object,
+                    value: Lodash.stubObject, // This must not be a shared object!
+                },
+
+                datastoreCollections: {
+                    type: Array,
+                },
+
+                datastorePlug: {
+                    type: Object,
+                },
+
+                deferDatastore: {
+                    type: Boolean,
+                    value: false,
+                },
+
+                isAttached: {
+                    type: Boolean,
+                    value: false,
+                },
+            },
+
+            observers: [
+                '_datastoreCollectionsObserver(store, datastoreCollections.length, deferDatastore, isAttached)',
+                '_datastorePlugObserver(store, datastorePlug)',
+                '_datastoreSetter(store, storeState, datastoreCollections)',
+            ],
+
+            //// Lifecycle callbacks. //////////////////////////////////////////
+
+            attached() {
+                this.isAttached = true
+            },
+
+            //// Computers. ////////////////////////////////////////////////////
+
+            //// Observers. ////////////////////////////////////////////////////
+
+            _datastoreCollectionsObserver(store, datastoreCollectionsLength, deferDatastore, isAttached) {
+                if (Lodash.some(arguments, Lodash.isNil)) {
+                    return
+                }
+
+                if (isAttached !== true) {
+                    return // We must be attached to fire the lock events.
+                }
+
+                if (deferDatastore === true) {
+                    return // User requested to defer the loading of the datastore collections.
+                }
+
+                const collections = this.datastoreCollections
+
+                if (collections === undefined) {
+                    return // User has no datastore collections defined (yet).
+                }
+
+                this._fireGrapheneBusyLock()
+                this.loadCollectionsSequentially(collections)
+                    .catch()
+                    .then(this._fireGrapheneBusyRelease.bind(this))
+            },
+
+            _datastorePlugObserver(store, plug) {
+                store.plugins.add(Graphene.DatastorePlug)
+                store.plugins.add(plug)
+            },
+
+            _datastoreSetter(store, storeState, datastoreCollections) {
+                if (Lodash.some(arguments, Lodash.isNil)) {
+                    return
+                }
+
+                for (const collection of datastoreCollections) {
+                    const { get }    = this.store
+                    const stateValue = get.datastoreCollection(collection)
+
+                    this.set(['datastore', collection], stateValue)
+                }
+            },
+
+            //// Listeners. ////////////////////////////////////////////////////
+
+            //// Public APIs. //////////////////////////////////////////////////
+
+            loadCollectionsSequentially(collections) {
+                const collection         = collections[0]
+                const pendingCollections = collections.slice(1)
+
+                if (collection === undefined) {
+                    return Promise.resolve()
+                }
+
+                return this.initDatastoreCollection(collection)
+                    .catch()
+                    .then(() => this.loadCollectionsSequentially(pendingCollections))
+            },
+
+            initDatastoreCollection(collection) {
+                const { state, get } = this.store
+                const localData = this.get(['datastore', collection])
+                const stateData = get.datastoreCollection(collection)
+
+                if (localData !== undefined) {
+                    // The datastore collection has been already initialized.
+                    return Promise.resolve()
+                }
+
+                if (stateData !== undefined) {
+                    // The datastore collection has been already loaded.
+                    this.set(['datastore', collection], stateData)
+
+                    return Promise.resolve()
+                }
+
+                return this.loadDatastoreCollection(collection)
+            },
+
+            loadDatastoreCollection(collection, refresh) {
+                const { LOAD_COLLECTION } = Graphene.DatastorePlug
+
+                this._fireGrapheneBusyLock()
+                return this.store
+                    .dispatch(LOAD_COLLECTION, collection, refresh)
+                    .catch()
+                    .then(this._fireGrapheneBusyRelease.bind(this))
+            },
+
+            //// Internal APIs. ////////////////////////////////////////////////
+
+            _fireGrapheneBusyLock() {
+                this.fire('graphene-busy-lock', undefined, { bubbles: true })
+
+                return this
+            },
+
+            _fireGrapheneBusyRelease() {
+                this.fire('graphene-busy-release', undefined, { bubbles: true })
+
+                return this
+            },
+        }
+
+        /** @polymerBehavior */
+        Graphene.DatastoreBehavior = [ Graphene.StoreBehavior, Graphene.DatastoreBehaviorImpl ]
+    })()
+    // ]]>
+</script>

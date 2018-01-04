@@ -1,0 +1,138 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../../paper-icon-button/paper-icon-button.html"/>
+<link rel="import" href="../../polymer/polymer.html"/>
+<link rel="import" href="graphene-style.html"/>
+
+<dom-module id="graphene-toolbar">
+    <template>
+        <style include="graphene-style"></style>
+
+        <style>
+            :host {
+                display: block;
+                width:  100%;
+                min-height: calc(var(--graphene-gutter-m) + var(--graphene-gutter-s) * 2);
+                padding: var(--graphene-gutter-s) 0;
+                @apply --graphene-toolbar;
+            }
+
+            #Actions {
+                display: flex;
+                height: 100%;
+                max-width: var(--graphene-viewport);
+                margin-left:  auto;
+                margin-right: auto;
+                align-items: center;
+                @apply --graphene-toolbar-actions;
+            }
+
+            :host ::slotted(a:hover) {
+                text-decoration: none;
+            }
+
+            :host ::slotted(* > .FlexSpacer) {
+                flex-grow: 1;
+            }
+
+            #CloseButton {
+                /*
+                * By default the back button is hidden.
+                * We use visibility:hidden instead of display:none because the
+                * button should fill its reserved space even if not visible.
+                */
+                /* visibility: hidden; */
+                display: none;
+            }
+
+            :host([back-button])  #CloseButton,
+            :host([close-button]) #CloseButton {
+                /*
+                * Close button is explicitly requested, we can show it.
+                */
+                display: unset;
+                margin-right: var(--graphene-gutter-s);
+                @apply --graphene-toolbar-closebutton;
+            }
+        </style>
+
+        <div id="Actions">
+            <paper-icon-button id="CloseButton" icon="[[ closeButtonIcon ]]"></paper-icon-button>
+
+            <slot></slot>
+        </div>
+    </template>
+
+    <script>
+        // <![CDATA[
+        ;(function (undefined) {
+            'use strict'
+
+            Polymer({
+                is: 'graphene-toolbar',
+
+                properties: {
+                    // In case we don't receive a custom delegate, we use this
+                    // element instance.
+                    delegate: {
+                        type: Object,
+                        value() {
+                            return this
+                        },
+                    },
+
+                    closeButton: {
+                        type: Boolean,
+                        value: false,
+                        reflectToAttribute: true,
+                    },
+
+                    backButton: {
+                        type: Boolean,
+                        value: false,
+                        reflectToAttribute: true,
+                    },
+
+                    closeButtonIcon: {
+                        type: String,
+                        computed: '_closeButtonIconComputer(closeButton, backButton)',
+                    },
+                },
+
+                listeners: {
+                    // The button has an animation. We act at the end of it.
+                    'CloseButton.transitionend': '_closeButtonTapListener',  // Too slow?
+                },
+
+                //// Lifecycle callbacks. //////////////////////////////////////
+
+                //// Computers. ////////////////////////////////////////////////
+
+                _closeButtonIconComputer(closeButton, backButton) {
+                    if (closeButton) {
+                        return 'icons:close'
+                    }
+
+                    return 'icons:arrow-back'
+                },
+
+                //// Observers. ////////////////////////////////////////////////
+
+                //// Listeners. ////////////////////////////////////////////////
+
+                _closeButtonTapListener() {
+                    this.fire('graphene-view-close', this.delegate, { node: this.delegate, bubbles: true })
+                },
+
+                //// Public APIs. //////////////////////////////////////////////
+
+                //// Internal APIs. ////////////////////////////////////////////
+            })
+        })()
+        // ]]>
+    </script>
+</dom-module>

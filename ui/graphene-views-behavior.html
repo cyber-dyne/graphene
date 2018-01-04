@@ -1,0 +1,369 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../core/graphene-api.html"/>
+<link rel="import" href="../core/graphene-databinding-api.html"/>
+<link rel="import" href="../core/graphene-elementfactory-api.html"/>
+<link rel="import" href="../core/graphene-elementlifecycle-behavior.html"/>
+<link rel="import" href="../core/graphene-routing-api.html"/>
+<link rel="import" href="../core/graphene-routing-behavior.html"/>
+<link rel="import" href="../lib/lodash.html"/>
+<link rel="import" href="graphene-views.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        /** @polymerBehavior */
+        Graphene.ViewsBehaviorImpl = {
+            properties: {
+                // Views can be in the form of an array or an object:
+                // - [ 'view-1', 'view-2' ]
+                // - [ [ 'view-1', 'handler'], [ 'view-2', function () {} ] }
+                // - { 'view-1': 'handler', 'view-2': function () {} }
+                views: {
+                    type: Array,
+                },
+
+                viewsNode: {
+                    type: Object,
+                },
+
+                defaultView: {
+                    type: String,
+                },
+
+                selectedView: {
+                    type: String,
+                },
+
+                viewsPromises: {
+                    type: Object,
+                    value: Lodash.stubObject,
+                },
+
+                deferViews: {
+                    type: Boolean,
+                    value: false,
+                },
+            },
+
+            observers: [
+                '_deferViewsObserver(deferViews, isReady)',
+                '_selectedViewObserver(selectedView)',
+                '_viewsViewLifecycleObserver(viewLifecycle)',
+            ],
+
+            listeners: {
+                'graphene-view-created': '_grapheneViewCreatedListener',
+                'graphene-view-select':  '_grapheneViewSelectListener',
+                'graphene-view-close':   '_grapheneViewCloseListener',
+            },
+
+            //// Lifecycle callbacks. //////////////////////////////////////////
+
+            //// Computers. ////////////////////////////////////////////////////
+
+            //// Observers. ////////////////////////////////////////////////////
+
+            _deferViewsObserver(deferViews, isReady) {
+                if (isReady !== true) {
+                    // We need to be at least ready to access the Local DOM.
+                    return
+                }
+
+                if (deferViews === true) {
+                    // User has requested to defer views creation.
+                    return
+                }
+
+                this._createViews()
+            },
+
+            _selectedViewObserver(selectedView) {
+                this.selectView(selectedView)
+            },
+
+            _viewsViewLifecycleObserver(lifecycle) {
+                this._propagateViewLifecycle(lifecycle)
+
+                if (lifecycle !== 'appeared') {
+                    return
+                }
+
+                const emptyView = this.viewsManager.emptyView
+
+                if (this.viewsManager.selected === emptyView) {
+                    // In case no view is selected, we request the routing.
+                    this.route()
+                }
+
+                if (this.viewsManager.selected === emptyView) {
+                    // In case no view is selected after the routing,
+                    // we fallback to the defaultRouter and the defaultView.
+                    this.defaultRouter()
+                }
+            },
+
+            //// Listeners. ////////////////////////////////////////////////////
+
+            _grapheneViewCreatedListener(event, view) {
+                event.stopPropagation()
+
+                const viewsNode = Polymer.dom(this.viewsManager)
+
+                viewsNode.appendChild(view)
+            },
+
+            _grapheneViewSelectListener(event, view) {
+                event.stopPropagation()
+
+                const emptyView = this.viewsManager.emptyView
+
+                if (Lodash.isObject(view)) {
+                    // Undefined or null event detail is converted to an
+                    // empty object by Polymer fire. This fixes it.
+                    view = emptyView
+                }
+
+                switch (view) {
+                    case '':
+                    case null:
+                    case undefined:
+                        view = emptyView
+                        break
+                }
+
+                this.selectView(view)
+            },
+
+            _grapheneViewCloseListener(event, delegate) {
+                event.stopPropagation()
+
+                // A view can dispatch the event (maybe triggered by user)
+                // to dispose himself. The actual event is usually fired by
+                // a framework component not directly controlled by the view.
+
+                Graphene.Routing.route(this.routesMount)
+            },
+
+            //// Public APIs. //////////////////////////////////////////////////
+
+            defaultRouter() {
+                // In case no route is matched and a default view is specified
+                // we fallback selecting the default view.
+                this.selectView(this.defaultView)
+                // Nothing happens if this.defaultView is undefined.
+            },
+
+            get viewsManager() {
+                // Views node is created the first time it is accessed.
+                if (this._viewsNode) {
+                    // We have already discovered or created it.
+                    return this._viewsNode
+                }
+
+                // Views node has not been discovered or created yet, so it is
+                // time to do it.
+
+                const element   = 'graphene-views'
+                const config    = {
+                    node: this.viewsNode,
+                    init: this._initViewsNode.bind(this),
+                }
+                const factory   = Graphene.ElementFactory.withContext(this)
+                const viewsNode = factory.discover(element, config)
+
+                // We save the reference to the discovered node.
+                this._viewsNode = viewsNode
+
+                return viewsNode
+            },
+
+            createViews(views) {
+                const viewsSpecs = this.viewsSpecs(views)
+                // Normalized views specs are in the form:
+                // - [ [ 'view-1', function () {} ], [ 'view-2', function () {} ] ].
+
+                const elements         = viewsSpecs.map(view => view[0])
+                const factory          = Graphene.ElementFactory.withContext(this)
+                const instancesPromise = factory.create(elements)
+
+                instancesPromise.then(viewsInstances => {
+                    viewsInstances = Lodash.flatten([ viewsInstances ])
+
+                    // 1) We init the views instances with their own handler.
+                    viewsInstances.forEach((viewInstance, index) => {
+                        const [ _, init ] = viewsSpecs[index]
+
+                        // The view init function can return an object of
+                        // property names that must be configured for the
+                        // 2 way data binding.
+                        const props = init.call(this, viewInstance)
+
+                        const id    = viewInstance.id
+                        const defId = viewInstance.localName
+
+                        // We set a default instance id (its element name) if
+                        // not explicitly set by the init function.
+                        id || viewInstance.setAttribute('id', defId)
+
+                        if (props !== undefined) {
+                            // View is returning a list (array/object) of
+                            // properties to keep in sync with this element.
+                            const binding = Graphene.DataBinding([ this, viewInstance ], props)
+                            // TODO: store the binding for later destroing it in
+                            // case of detached event.
+                        }
+                    })
+
+                    // 2) We get the views container creating it if it doesn't exist.
+                    const viewsNode = Polymer.dom(this.viewsManager)
+
+                    // 3) We attach the views instances to the Local DOM.
+                    viewsInstances.forEach(viewInstance => viewsNode.appendChild(viewInstance))
+
+                    // Polymer doesn't modify the DOM immediately. Before
+                    // calling the callback which could fire some events (which
+                    // requires a node to be attached) we must force Polymer to
+                    // flush our pending DOM modifications. This is true only
+                    // for Shady DOM.
+                    Polymer.dom.flush()
+
+                    return viewsInstances
+                })
+
+                return instancesPromise
+            },
+
+            activateView(view) {
+                const storedPromise = this.viewsPromises[view]
+
+                if (storedPromise) {
+                    // We wrap the original promise with a new one to not mutate
+                    // the original.
+                    const promise = Promise.resolve(storedPromise)
+                        // We select the view.
+                        .then(() => this.selectView(view))
+
+                    // We return the view creation and selection promise.
+                    return promise
+                }
+
+                // We create the view.
+                const newPromise = this.createViews(view)
+
+                // We store the creation promise.
+                this.viewsPromises[view] = newPromise
+
+                // We re-execute this method to wrap the original promise
+                // and to select the view.
+                return this.activateView(view)
+            },
+
+            selectView(view) {
+                if (view === undefined) {
+                    // We want to skip an undefined 'defaultView' property.
+                    return
+                }
+
+                this.viewsManager.selected = view
+            },
+
+            viewsSpecs(views) {
+                if (! views) {
+                    return
+                }
+
+                if (Lodash.isPlainObject(views)) {
+                    // Views are in the form:
+                    // - { 'view-1': 'handler', 'view-2': function () {} }
+                    const config = Lodash.map(views, (handler, view) =>
+                        [view, this._fnFor(handler)]
+                    )
+
+                    return config
+                }
+
+                // We handled a single string value as the general case of an
+                // array of strings.
+                views = Lodash.flatten([ views ])
+
+                const noop = function () {}
+
+                // Views are in the form:
+                // - [ 'view-1', 'view-2' ].
+                // - [ [ 'view-1', 'handler' ], [ 'view-2', function () {} ] ].
+
+                const config = views.map(entry => {
+                    if (Lodash.isString(entry)) {
+                        // Views are in the form:
+                        // - [ 'view-1', 'view-2' ].
+                        return [ entry, noop ]
+                    }
+
+                    // Views are in the form:
+                    // - [ [ 'view-1', 'handler' ], [ 'view-2', function () {} ] ].
+                    const [ view, handler ] = entry
+                    const init              = this._fnFor(handler)
+
+                    return [view, init]
+                })
+
+                return config
+            },
+
+            //// Internal APIs. ////////////////////////////////////////////////
+
+            _fnFor(handler) {
+                // Views can be in the form:
+                const init = Lodash.isString(handler) ?
+                    // - { 'view-1': 'handler' }
+                    // - [ 'view-1', 'handler' ]
+                    this[handler]
+                :
+                    // - { 'view-1': function () {} }
+                    // - [ 'view-1': function () {} ]
+                    handler
+
+                return init
+            },
+
+            _initViewsNode(node) {
+                node.setAttribute('id', 'Views')
+
+                return this
+            },
+
+            _createViews() {
+                const views = this.views
+
+                if (! views) {
+                    return this
+                }
+
+                const promise = this.createViews(views)
+                    .then(viewsInstances => {
+                        // We inform the world that views are ready.
+                        this.viewsDidCreate && this.viewsDidCreate(viewsInstances)
+                    })
+
+                return promise
+            },
+
+            _propagateViewLifecycle(lifecycle) {
+                const view = this.viewsManager.selectedItem
+
+                Lodash.set(view, 'viewLifecycle', lifecycle)
+            },
+        }
+
+        /** @polymerBehavior */
+        Graphene.ViewsBehavior = [ Graphene.ElementLifecycleBehavior, Graphene.RoutingBehavior, Graphene.ViewsBehaviorImpl ]
+    })()
+    // ]]>
+</script>

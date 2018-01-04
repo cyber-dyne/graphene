@@ -1,0 +1,78 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../core/graphene-api.html"/>
+<link rel="import" href="../core/graphene-elementfactory-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        /** @polymerBehavior */
+        Graphene.ColorbarBehavior = {
+            properties: {
+                colorbar: {
+                    type: Object,
+                    value() {
+                        return {
+                            container: '.ColorbarBg',
+                            content:   '.ColorbarFg',
+                            bgColor:   'white',
+                            filter:    '', // 'brightness(0%) invert(100%)'
+                        }
+                    },
+                },
+            },
+
+            listeners: {
+                'graphene-colorbar-select': '_grapheneColorbarSelectListener',
+            },
+
+            //// Lifecycle callbacks. //////////////////////////////////////
+
+            //// Computers. ////////////////////////////////////////////////
+
+            //// Observers. ////////////////////////////////////////////////
+
+            //// Listeners. ////////////////////////////////////////////////
+
+            _grapheneColorbarSelectListener(event, config) {
+                const baseConfig = this.colorbar
+                const factory    = Graphene.ElementFactory.withContext(this)
+                const container  = factory.selectNodes(baseConfig.container)
+                const content    = factory.selectNodes(baseConfig.content)
+
+                if (Lodash.isEmpty(config)) {
+                    // We received a request to reset the colorbar style.
+                    container.forEach(node => node.style.backgroundColor = '')
+                    content.forEach(node   => node.style.filter          = '')
+
+                    return
+                }
+
+                // This is who triggered the event, in other words the element
+                // who requested to change the style of the colorbar.
+                const context = Polymer.dom(event).rootTarget
+                const bgColor = config.bgColor || baseConfig.bgColor
+                const filter  = config.filter  || baseConfig.filter
+                const style   = config.style   || baseConfig.style
+
+                container.forEach(node => node.style.backgroundColor = bgColor)
+                content.forEach(  node => node.style.filter          = filter)
+
+                // The colorbar object could carry a function to use for
+                // customizing the style of the colorbar.
+                style && style.call(context, container, content)
+            },
+
+            //// Public APIs. //////////////////////////////////////////////
+
+            //// Internal APIs. ////////////////////////////////////////////
+        }
+    })()
+    // ]]>
+</script>

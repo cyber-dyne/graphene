@@ -1,0 +1,152 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../../polymer/polymer.html"/>
+<link rel="import" href="../../vaadin-upload/vaadin-upload.html"/>
+<link rel="import" href="../core/graphene-api.html"/>
+<link rel="import" href="../core/graphene-localize-behavior.html"/>
+<link rel="import" href="graphene-style.html"/>
+
+<dom-module id="graphene-upload">
+    <template>
+        <style include="graphene-style"></style>
+
+        <style>
+            :host {
+                @apply --graphene-host;
+                height: auto;
+            }
+
+            :host([disabled]) {
+                pointer-events: none;
+                filter: saturate(0%);
+                opacity: 0.6;
+            }
+
+            vaadin-upload {
+                padding: 0   !important;
+                border: none !important;
+
+                --vaadin-upload-drop-label: {
+                    font-size: 0.8em;
+                    off-border: 1px dashed #eaeaea;
+                    border: none;
+                };
+
+                --primary-color:      var(--graphene-upload-primary-color);
+                --primary-text-color: var(--graphene-upload-primary-text-color);
+
+                --vaadin-upload-button-add: {
+                    font-size: 0.8em;
+                    background-color: unset;
+                    @apply --graphene-upload-button;
+                };
+            }
+        </style>
+
+        <!-- https://vaadin.com/elements/-/element/vaadin-upload#docs -->
+        <vaadin-upload id="Upload"
+                       method="[[ method ]]"
+                       target="[[ path ]]"
+                       headers="[[ headers ]]"
+                       max-files="[[ maxFiles ]]"
+                       accept="[[ fileTypes ]]">
+            <div class="drop-label">
+                <iron-icon icon="cloud-upload"></iron-icon>
+                [[ msg('Drop file here...') ]]
+            </div>
+        </vaadin-upload>
+    </template>
+
+    <script>
+        // <![CDATA[
+        ;(function (undefined) {
+            'use strict'
+
+            Polymer({
+                is: 'graphene-upload',
+
+                behaviors: [
+                    Graphene.LocalizeBehavior,
+                ],
+
+                properties: {
+                    method: {
+                        type: String,
+                        value: 'POST',
+                    },
+
+                    path: {
+                        type: String,
+                    },
+
+                    headers: {
+                        type: Array,
+                    },
+
+                    maxFiles: {
+                        type: Number,
+                        value: 1,
+                    },
+
+                    fileTypes: {
+                        type: String,
+                    },
+
+                    response: {
+                        type: Object,
+                        notify: true,
+                    },
+
+                    error: {
+                        type: Object,
+                        notify: true,
+                    },
+
+                    disabled: {
+                        type: Boolean,
+                        reflectToAttribute: true,
+                    },
+                },
+
+                listeners: {
+                    'upload-success': '_uploadSuccessListener',
+                    'upload-error':   '_uploadErrorListener',
+                    'upload-abort':   '_uploadAbortListener'
+                },
+
+                //// Lifecycle callbacks. //////////////////////////////////////
+
+                //// Computers. ////////////////////////////////////////////////
+
+                //// Observers. ////////////////////////////////////////////////
+
+                //// Listeners. ////////////////////////////////////////////////
+
+                _uploadSuccessListener(event, detail) {
+                    const response = JSON.parse(detail.xhr.response)
+
+                    this.response = response
+                },
+
+                _uploadErrorListener(event, detail) {
+                    const response = JSON.parse(detail.xhr.response)
+
+                    this.error = response
+                },
+
+                _uploadAbortListener(event, detail) {
+                    this.response = null
+                },
+
+                //// Public APIs. //////////////////////////////////////////////
+
+                //// Internal APIs. ////////////////////////////////////////////
+            })
+        })()
+        // ]]>
+    </script>
+</dom-module>
