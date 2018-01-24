@@ -61,12 +61,21 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 transition: transform .4s, opacity .4s;
             }
 
+            .Table-Col-Sortable:hover iron-icon {
+                opacity: 0.5;
+            }
+
             .Table-Col-Sortable iron-icon[visible] {
                 opacity: 1;
             }
 
             .Table-Col-Sortable iron-icon[order="desc"] {
                 transform: rotate(-180deg);
+            }
+
+            .Table-Col-Sortable.Table_justify-center::before {
+                content: "";
+                padding-left: 17px;
             }
 
             .Table-Body {
@@ -82,7 +91,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 display: flex;
                 flex: 1;
                 align-items:     center;
-                justify-content: center;
                 /*
                 * Don't use relative units like em otherwise using different
                 * font-size for header and rows alters even the padding
@@ -93,8 +101,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 min-width: 0;         /* To allow text-overflow: ellipsis work. */
             }
 
-            .Table_justify-left {
-                 justify-content: flex-start;
+            .Table_justify-center {
+                 justify-content: center;
             }
 
             .Table_justify-right {
