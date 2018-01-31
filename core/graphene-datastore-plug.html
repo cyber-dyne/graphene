@@ -15,15 +15,11 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
         const { reducers, getters } = Graphene.Store
 
-        const LOAD_COLLECTION = Symbol('Graphene.DatastorePlug.LOAD_COLLECTION')
-        const SET_COLLECTION  = Symbol('Graphene.DatastorePlug.SET_COLLECTION')
+        const SET_COLLECTION = Symbol('Graphene.DatastorePlug.SET_COLLECTION')
 
         Graphene.DatastorePlug = {
-            // API used to request the load of a datastore collection.
-            // It must implemented by the actual datastore plug as an action.
-            LOAD_COLLECTION: LOAD_COLLECTION,
             // API used to set the content of a datastore collection.
-            SET_COLLECTION:  SET_COLLECTION,
+            SET_COLLECTION: SET_COLLECTION,
 
             [reducers]: {
                 [SET_COLLECTION]: setCollection,

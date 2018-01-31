@@ -398,9 +398,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                             const iface = [ Graphene.Store.start, 'start' ]
 
-                            // The start/stop interface can be handled by one
-                            // callback only. To distinguish them we pass
-                            // an event-like argument.
+                            // We pass an event-like argument to stay aligned
+                            // with the notification API.
                             on(plugin).invoke(iface, this, 'plugin-loaded')
                         })
 
@@ -422,9 +421,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                             const iface = [ Graphene.Store.stop, 'stop' ]
 
-                            // The start/stop interface can be handled by one
-                            // callback only. To distinguish them we pass
-                            // an event-like argument.
+                            // We pass an event-like argument to stay aligned
+                            // with the notification API.
                             on(plugin).invoke(iface, this, 'plugin-unloaded')
                         })
 

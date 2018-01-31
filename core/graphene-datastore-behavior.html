@@ -26,7 +26,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     type: Array,
                 },
 
-                datastorePlug: {
+                datastoreService: {
                     type: Object,
                 },
 
@@ -42,9 +42,9 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             },
 
             observers: [
-                '_datastoreCollectionsObserver(store, datastoreCollections.length, deferDatastore, isAttached)',
-                '_datastorePlugObserver(store, datastorePlug)',
-                '_datastoreSetter(store, storeState, datastoreCollections)',
+                '_datastoreStoreObserver(store)',
+                '_datastoreCollectionsObserver(store, datastoreService, datastoreCollections.length, deferDatastore, isAttached)',
+                '_datastoreSetter(store, storeState, datastoreCollections, deferDatastore)',
             ],
 
             //// Lifecycle callbacks. //////////////////////////////////////////
@@ -57,7 +57,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
             //// Observers. ////////////////////////////////////////////////////
 
-            _datastoreCollectionsObserver(store, datastoreCollectionsLength, deferDatastore, isAttached) {
+            _datastoreCollectionsObserver(store, datastoreService, datastoreCollectionsLength, deferDatastore, isAttached) {
                 if (Lodash.some(arguments, Lodash.isNil)) {
                     return
                 }
@@ -82,14 +82,17 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     .then(this._fireGrapheneBusyRelease.bind(this))
             },
 
-            _datastorePlugObserver(store, plug) {
+            _datastoreStoreObserver(store) {
                 store.plugins.add(Graphene.DatastorePlug)
-                store.plugins.add(plug)
             },
 
-            _datastoreSetter(store, storeState, datastoreCollections) {
+            _datastoreSetter(store, storeState, datastoreCollections, deferDatastore) {
                 if (Lodash.some(arguments, Lodash.isNil)) {
                     return
+                }
+
+                if (deferDatastore === true) {
+                    return // User requested to defer the loading of the datastore collections.
                 }
 
                 for (const collection of datastoreCollections) {
@@ -105,20 +108,26 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             //// Public APIs. //////////////////////////////////////////////////
 
             loadCollectionsSequentially(collections) {
-                const collection         = collections[0]
-                const pendingCollections = collections.slice(1)
+                const collection = collections[0]
 
                 if (collection === undefined) {
+                    // 'collections' is an empty array. Time to return, resolving.
                     return Promise.resolve()
                 }
 
                 return this.initDatastoreCollection(collection)
+                    // An error on a collection should not stop the loading of
+                    // others collections.
                     .catch()
-                    .then(() => this.loadCollectionsSequentially(pendingCollections))
+                    .then(() => {
+                        const pendingCollections = collections.slice(1)
+
+                        return this.loadCollectionsSequentially(pendingCollections)
+                    })
             },
 
             initDatastoreCollection(collection) {
-                const { state, get } = this.store
+                const { get }   = this.store
                 const localData = this.get(['datastore', collection])
                 const stateData = get.datastoreCollection(collection)
 
@@ -138,13 +147,37 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             },
 
             loadDatastoreCollection(collection, refresh) {
-                const { LOAD_COLLECTION } = Graphene.DatastorePlug
+                const { require, commit, get } = this.store
+                const { SET_COLLECTION } = Graphene.DatastorePlug
+
+                const datastore = require(this.datastoreService)
 
                 this._fireGrapheneBusyLock()
-                return this.store
-                    .dispatch(LOAD_COLLECTION, collection, refresh)
-                    .catch()
-                    .then(this._fireGrapheneBusyRelease.bind(this))
+
+                return datastore
+                    .load(collection, refresh)
+                    .then(collectionData => {
+                        this._fireGrapheneBusyRelease()
+
+                        const collectionState = get.datastoreCollection(collection)
+
+                        if (Lodash.isEqual(collectionData, collectionState)) {
+                            // Fetched data and state data are equal.
+                            // There is no reason to mutate the state.
+                            return collectionState
+                        }
+
+                        // Fetched data and state data are different.
+                        // We mutate the state.
+                        commit(SET_COLLECTION, collection, collectionData)
+
+                        return collectionData
+                    })
+                    .catch((...args) => {
+                        this._fireGrapheneBusyRelease()
+
+                        return Promise.reject(...args)
+                    })
             },
 
             //// Internal APIs. ////////////////////////////////////////////////

@@ -6,6 +6,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 -->
 <link rel="import" href="../lib/lodash.html"/>
 <link rel="import" href="graphene-api.html"/>
+<link rel="import" href="graphene-store-api.html"/>
 
 <script>
     // <![CDATA[
@@ -99,6 +100,9 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             //// Public APIs. //////////////////////////////////////////////////
 
             stateDidChange(state) {
+                // This API is called by the store when the state changes.
+                // We can't use Graphene.Store.stateDidChange symbol because
+                // Polymer doesn't support symbols when mixing behaviors.
                 this.storeState = state
             },
 
