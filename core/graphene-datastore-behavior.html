@@ -148,7 +148,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
             loadDatastoreCollection(collection, refresh) {
                 const { require, commit, get } = this.store
-                const { SET_COLLECTION } = Graphene.DatastorePlug
+                const { UPDATE_COLLECTION } = Graphene.DatastorePlug
 
                 const datastore = require(this.datastoreService)
 
@@ -159,19 +159,9 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     .then(collectionData => {
                         this._fireGrapheneBusyRelease()
 
-                        const collectionState = get.datastoreCollection(collection)
+                        commit(UPDATE_COLLECTION, collection, collectionData)
 
-                        if (Lodash.isEqual(collectionData, collectionState)) {
-                            // Fetched data and state data are equal.
-                            // There is no reason to mutate the state.
-                            return collectionState
-                        }
-
-                        // Fetched data and state data are different.
-                        // We mutate the state.
-                        commit(SET_COLLECTION, collection, collectionData)
-
-                        return collectionData
+                        return get.datastoreCollection(collection)
                     })
                     .catch((...args) => {
                         this._fireGrapheneBusyRelease()

@@ -30,7 +30,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 } = config
 
                 // 1) We init the internal data structures.
-                this.queue      = []
                 this.history    = []
                 this.future     = []
                 this.plugins    = this._newPluginsProxy()
@@ -60,29 +59,29 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 this.state      = state
             }
 
-            commit(...args)
+            commit(id, ...args)
             {
-                // First argument is a reducer/mutator id string/symbol.
-                return this._scheduleTask('commit', ...args)
+                // id is a reducer/mutator identifier string/symbol.
+                return this._executeTask('commit', id, ...args)
             }
 
-            reduce(...args)
+            reduce(fn, ...args)
             {
-                // First argument is a reducer function.
-                return this._scheduleTask('reduce', ...args)
+                // fn is a reducer function.
+                return this._executeTask('reduce', fn, ...args)
             }
 
-            mutate(...args)
+            mutate(fn, ...args)
             {
-                // First argument is a mutator function.
-                return this._scheduleTask('mutate', ...args)
+                // fn is a mutator function.
+                return this._executeTask('mutate', fn, ...args)
             }
 
-            dispatch(...args)
+            dispatch(fnOrId, ...args)
             {
-                // First argument is an action function or id string/symbol.
+                // fnOrId is an action function or an action identifier string/symbol.
                 const promise = new Promise((resolve, reject) => {
-                    this._scheduleTask('action', [ resolve, reject ], ...args)
+                    this._executeTask('action', [ resolve, reject ], fnOrId, ...args)
                 })
 
                 return promise
@@ -204,52 +203,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 // undefined otherwise.
             }
 
-            _scheduleTask(type, ...args)
-            {
-                this.queue.push({ type: type, args: args })
-
-                if (this.lock) {
-                    // There is already one reduction in progress. We have
-                    // nothing to do so we can return.
-                    return this
-                }
-
-                // No consuming is in progress. We can start consuming the queue.
-                this._consumeQueue()
-
-                return this
-            }
-
-            _consumeQueue()
-            {
-                if (this.queue.length === 0) {
-                    // Queue is empty, meaning there are no more pending
-                    // reductions to process. We can return.
-                    this.lock = false
-
-                    return
-                }
-
-                // There is at least one pending task in the queue.
-                // Let's execute the task.
-                this.lock = true
-
-                const { type, args } = this.queue[0]
-
-                const executeTask = this._executeTask.bind(this)
-                const result      = Lodash.attempt(executeTask, type, ...args)
-
-                if (Lodash.isError(result)) {
-                    Graphene.Logger.error(result)
-                }
-
-                // We remove the completed tasks continuing processing the queue.
-                this.queue.shift()
-
-                // We read the queue looking for pending tasks.
-                this._consumeQueue()
-            }
-
             _executeTask(type, ...args)
             {
                 Graphene.Logger.debug('Graphene.Store:', this.messages[type], args)
@@ -263,11 +216,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 return this
             }
 
-            _fnForId(id, collection)
-            {
-                return Lodash.isFunction(id) ? id : collection.items[id]
-            }
-
             _commitHandler(id, ...args)
             {
                 const types = [
@@ -277,31 +225,30 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 const found = types.some(spec => {
                     const { collection, type } = spec
-                    const fn = this._fnForId(id, collection)
+                    const fn = collection.items[id]
 
-                    if (! fn) {
-                        return false
+                    if (fn) {
+                        const handler = `_${type}Handler`
+
+                        this[handler](fn, ...args)
+
+                        return true
                     }
-
-                    const handler = `_${type}Handler`
-
-                    this[handler](id, ...args)
-
-                    return true
                 })
 
                 if (! found) {
-                    // String is used to convert a Symbol into String, otherwise
-                    // 'TypeError: Cannot convert a Symbol value to a string'.
-                    throw `Graphene.Store: Commit handler '${String(id)}' not found.`
+                    throw `Graphene.Store: reducer/mutator '${String(id)}' not found.`
                 }
 
                 return this
             }
 
-            _reduceHandler(id, ...args)
+            _reduceHandler(fn, ...args)
             {
-                const fn        = this._fnForId(id, this.reducers)
+                if (! Lodash.isFunction(fn)) {
+                    throw `Graphene.Store: reducer must be a function.`
+                }
+
                 const prevState = this.state
                 const nextState = fn(prevState, ...args)
 
@@ -310,9 +257,12 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 return this
             }
 
-            _mutateHandler(id, ...args)
+            _mutateHandler(fn, ...args)
             {
-                const fn      = this._fnForId(id, this.mutators)
+                if (! Lodash.isFunction(fn)) {
+                    throw `Graphene.Store: mutator must be a function.`
+                }
+
                 let newState  = this.state
                 const changes = fn(newState, ...args)
 
@@ -361,18 +311,23 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 return destState
             }
 
-            _actionHandler(promiseCallbacks, id, ...args)
+            _actionHandler(promiseCallbacks, fnOrId, ...args)
             {
-                const [ resolvePromise, _ ] = promiseCallbacks
-                const fn = this._fnForId(id, this.actions)
+                const fn = Lodash.isFunction(fnOrId) ? fnOrId : this.actions.items[fnOrId]
+
+                if (! Lodash.isFunction(fn)) {
+                    throw `Graphene.Store: action '${String(fnOrId)}' not found.`
+                }
+
+                const [ resolvePromise, rejectPromise ] = promiseCallbacks
 
                 // An action needs the store as first argument to be able to
                 // dispatch other actions or mutations/reductions.
                 const promise = fn(this, ...args)
 
-                // We resolve the .dispatch() returned promise with the return
-                // value of the action. It can be anything: a scalar, a Promise
-                // or undefined.
+                // We resolve the promise, returned by the .dispatch() function,
+                // with the return value of the action. It can be anything: a
+                // scalar, a Promise or undefined.
                 resolvePromise(promise)
 
                 return this

@@ -13,16 +13,19 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
     ;(function (undefined) {
         'use strict'
 
-        const { reducers, getters } = Graphene.Store
+        const { reducers, actions, getters } = Graphene.Store
 
         const SET_COLLECTION = Symbol('Graphene.DatastorePlug.SET_COLLECTION')
+        const UPDATE_COLLECTION = Symbol('Graphene.DatastorePlug.UPDATE_COLLECTION')
 
         Graphene.DatastorePlug = {
             // API used to set the content of a datastore collection.
             SET_COLLECTION: SET_COLLECTION,
+            UPDATE_COLLECTION: UPDATE_COLLECTION,
 
             [reducers]: {
                 [SET_COLLECTION]: setCollection,
+                [UPDATE_COLLECTION]: updateCollection,
             },
 
             [getters]: {
@@ -44,6 +47,20 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             })
 
             return nextState
+        }
+
+        function updateCollection(prevState, collectionName, collectionData) {
+            const collectionState = Lodash.get(prevState, `datastore.${collectionName}`)
+
+            if (Lodash.isEqual(collectionData, collectionState)) {
+                // Fetched data and state data are equal.
+                // There is no reason to mutate the state.
+                return prevState
+            }
+
+            // Fetched data and state data are different.
+            // We mutate the state.
+            return setCollection(prevState, collectionName, collectionData)
         }
     })()
     // ]]>
