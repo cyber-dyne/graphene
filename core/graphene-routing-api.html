@@ -123,8 +123,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
         {
             static routePath(route, mountPoint='')
             {
+                const prefix   = Graphene.Browser.basePath
                 const location = Graphene.Browser.location
-                const prefix   = Graphene.PREFIX
                 const search   = location.search
                 const hash     = location.hash
 
@@ -135,8 +135,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
             static get currentRoute()
             {
+                const prefix   = Graphene.Browser.basePath
                 const location = Graphene.Browser.location
-                const prefix   = Graphene.PREFIX
                 const pathname = location.pathname
 
                 // The path deprived of the app prefix.

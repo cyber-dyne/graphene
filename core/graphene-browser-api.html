@@ -12,13 +12,15 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
     ;(function (undefined) {
         'use strict'
 
+        const basePathRegexp = /\/+$/
+
         // These API is here to help testing and uniform the experience on
         // different browsers.
         Graphene.Browser = class
         {
             static get window()
             {
-                return Graphene.Browser.global || window
+                return Graphene.Browser._window || window
             }
 
             static get document()
@@ -48,12 +50,35 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
             static get queryParams()
             {
-                return appLocation.queryParams
+                return Graphene.Browser._appLocation.queryParams
+            }
+
+            static get basePath()
+            {
+                let basePath = ''
+
+                if (typeof Polymer !== 'undefined') {
+                    basePath = Polymer.rootPath
+
+                    if (basePath[0] !== '/') {
+                        // Polymer has returned an URL like http://host:port/path.
+                        const onlyPath = basePath.split('/').slice(3).join('/') // ''   or  'path'
+                        basePath = '/' + onlyPath                               // '/'  or  '/path'
+                    }
+                }
+
+                // TODO:
+                // We could search for /html/head/base[href].
+
+                // '/'       to  ''
+                // '/path/'  to  '/path'
+                const normalizedPath = basePath.replace(basePathRegexp, '')
+
+                return normalizedPath
             }
         }
 
-        const document    = Graphene.Browser.document
-        const appLocation = document.createElement('app-location')
+        Graphene.Browser._appLocation = Graphene.Browser.document.createElement('app-location')
     })()
     // ]]>
 </script>

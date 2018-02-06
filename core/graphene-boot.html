@@ -135,19 +135,23 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         }
 
                         // We need an absolute path
-                        // my-el    to  /my-el
+                        // my-el   to  /my-el
+                        // /my-el  to  //my-el
                         // otherwise it breaks on HTML 5 routing when the web
                         // server serves only correct assets paths.
-                        const absPath = ('/' + path).replace('//', '/')
-                        // //my-el  to  /my-el
+                        const absPath = '/' + path
 
                         // We need an absolute URL otherwise the Polymer
                         // .resolveUrl() fails resolving relative '../..' paths.
-                        const origin = module.ownerDocument.location.origin     // http://host:port
-                        const prefix = Graphene.PREFIX                          // /path or '' (empty)
-                        const url    = origin + prefix + absPath                // http://host:port/prefix/my-el
+                        // const origin = module.ownerDocument.location.origin     // http://host:port
+                        // const prefix = Graphene.PREFIX                          // /prefix or '' (empty)
+                        // const url    = origin + prefix + absPath                // http://host:port/prefix/my-el
+                        const url = Polymer.rootPath + absPath                     // http://host:port/prefix
 
-                        module.setAttribute(attrName, url)
+                        // //  to  /
+                        const normlizedUrl = url.replace('//', '/')
+
+                        module.setAttribute(attrName, normlizedUrl)
                     })
 
                     return this
@@ -167,17 +171,13 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         return this.default
                     }
 
-                    if (Graphene.APP !== undefined) {
-                        return Graphene.APP
-                    }
-
                     // undefined otherwise.
                 },
 
                 _import(element) {
                     // // Let's create a <link rel="import> to load the application custom element.
                     // const link     = document.createElement('link')
-                    // const linkHref = `${Graphene.PREFIX}/${appName}/${appName}.html`
+                    // const linkHref = `${Polymer.rootPath}/${appName}/${appName}.html`.replace('//', '/')
                     // link.setAttribute('rel',  'import')
                     // link.setAttribute('href', linkHref)
                     // document.head.appendChild(link)
