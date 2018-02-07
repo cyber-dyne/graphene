@@ -88,7 +88,14 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     return // User has no datastore collections defined (yet).
                 }
 
+                // We need a lock during the entire fetch.
+                // The lock can be used to show a spinner and without the lock
+                // on the entire fetch procedure the spinner would glitch,
+                // starting and stopping on every collection load.
+                this._fireGrapheneBusyLock()
                 datastoreFetch(collections)
+                    .then(this._fireGrapheneBusyRelease.bind(this))
+                    .catch(this._fireGrapheneBusyRelease.bind(this))
             },
 
             _datastoreStoreObserver(store) {
