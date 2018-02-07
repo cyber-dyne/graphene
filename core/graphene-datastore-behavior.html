@@ -7,6 +7,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 <link rel="import" href="../lib/lodash.html"/>
 <link rel="import" href="graphene-api.html"/>
 <link rel="import" href="graphene-datastore-plug.html"/>
+<link rel="import" href="graphene-logger-api.html"/>
 <link rel="import" href="graphene-store-behavior.html"/>
 
 <script>
@@ -30,6 +31,17 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     type: Object,
                 },
 
+                datastoreFetch: {
+                    type: Function,
+                    value() {
+                        // loadCollectionsSequentially
+                        // loadCollectionsBatch
+                        const strategy = 'loadCollectionsSequentially'
+
+                        return this[strategy].bind(this)
+                    },
+                },
+
                 deferDatastore: {
                     type: Boolean,
                     value: false,
@@ -43,7 +55,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
             observers: [
                 '_datastoreStoreObserver(store)',
-                '_datastoreCollectionsObserver(store, datastoreService, datastoreCollections.length, deferDatastore, isAttached)',
+                '_datastoreCollectionsObserver(store, datastoreService, datastoreCollections.length, datastoreFetch, deferDatastore, isAttached)',
                 '_datastoreSetter(store, storeState, datastoreCollections, deferDatastore)',
             ],
 
@@ -57,7 +69,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
             //// Observers. ////////////////////////////////////////////////////
 
-            _datastoreCollectionsObserver(store, datastoreService, datastoreCollectionsLength, deferDatastore, isAttached) {
+            _datastoreCollectionsObserver(store, datastoreService, datastoreCollectionsLength, datastoreFetch, deferDatastore, isAttached) {
                 if (Lodash.some(arguments, Lodash.isNil)) {
                     return
                 }
@@ -76,10 +88,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     return // User has no datastore collections defined (yet).
                 }
 
-                this._fireGrapheneBusyLock()
-                this.loadCollectionsSequentially(collections)
-                    .catch()
-                    .then(this._fireGrapheneBusyRelease.bind(this))
+                datastoreFetch(collections)
             },
 
             _datastoreStoreObserver(store) {
@@ -118,12 +127,18 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 return this.initDatastoreCollection(collection)
                     // An error on a collection should not stop the loading of
                     // others collections.
-                    .catch()
+                    .catch(Graphene.Logger.error)
                     .then(() => {
                         const pendingCollections = collections.slice(1)
 
                         return this.loadCollectionsSequentially(pendingCollections)
                     })
+            },
+
+            loadCollectionsBatch(collections) {
+                const promises = collections.map(this.initDatastoreCollection.bind(this))
+
+                return Promise.all(promises)
             },
 
             initDatastoreCollection(collection) {
@@ -163,10 +178,10 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                         return get.datastoreCollection(collection)
                     })
-                    .catch((...args) => {
+                    .catch(error => {
                         this._fireGrapheneBusyRelease()
 
-                        return Promise.reject(...args)
+                        return Promise.reject(error)
                     })
             },
 

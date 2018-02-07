@@ -1,0 +1,39 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../lib/lodash.html"/>
+<link rel="import" href="graphene-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        Graphene.SafeTypes = {
+            safe: Lodash.get,
+
+            safeType(type, ...args) {
+                const value = Graphene.SafeTypes.safe(...args)
+
+                switch (type) {
+                    case Array:  return Array.isArray(value)   ? value : []
+                    case String: return Lodash.isString(value) ? value : ''
+                }
+
+                return value
+            },
+
+            safeArray(...args) {
+                return Graphene.SafeTypes.safeType(Array, ...args)
+            },
+
+            safeString(...args) {
+                return Graphene.SafeTypes.safeType(String, ...args)
+            },
+        }
+    })()
+    // ]]>
+</script>

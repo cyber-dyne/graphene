@@ -1,0 +1,106 @@
+<!--
+Copyright (c) 2018, Cyber Dyne SRL. All rights reserved.
+This code may only be used under the BSD style license found at https://github.com/cyber-dyne/graphene/License.txt
+The complete set of authors may be found at https://github.com/cyber-dyne/graphene/Authors.txt
+The complete set of contributors may be found at https://github.com/cyber-dyne/graphene/Contributors.txt
+-->
+<link rel="import" href="../lib/lodash.html"/>
+<link rel="import" href="graphene-api.html"/>
+<link rel="import" href="graphene-fn-api.html"/>
+
+<script>
+    // <![CDATA[
+    ;(function (undefined) {
+        'use strict'
+
+        Graphene.RestShimClass = class
+        {
+            constructor(rest, specs, responseHandler, errorHandler)
+            {
+                this.rest  = rest
+                this.specs = specs
+
+                this.responseHandler = responseHandler || this._defaultResponseHandler.bind(this)
+                this.errorHandler    = errorHandler    || this._defaultErrorHandler.bind(this)
+            }
+
+            request(id, ...args)
+            {
+                const shim = this.specs[id]
+
+                // The shim id can be any valid object property.
+                // If the id follows the convention of a string of the form
+                // '{TYPE} {path}', for example 'GET /v1/path/',
+                // the shim doesn't need to specify the request type and path
+                // because that default values are used.
+                const [ defType, defPath ] = id.split(' ')
+
+                // The shim object can have the structure:
+                // Shims['GET /v1/path/'] = {
+                //     // Optional.
+                //     type: 'GET',        // Valid values are: 'GET', 'PUT', 'DELETE', 'POST'.
+                //
+                //     // Optional.
+                //     path: '/v1/path/',
+                //     // or
+                //     path: (...args) => `/v1/path/${args[1]}/`,
+                //
+                //     // Optional. Only for 'GET' type.
+                //     params: { key: val },
+                //     // or
+                //     params: (...args) => ({ key: val }),
+                //
+                //     // Optional. Only for not 'GET' types.
+                //     body: ...,          // String, Object, Array.
+                //     // or
+                //     body: (...args) => (...),
+                //
+                //     // Optional.
+                //     options: { key: val },
+                //     // or
+                //     options: (...args) => ({ key: val }),
+                //
+                //     // Optional.
+                //     response(envelope) {},
+                //
+                //     // Optional.
+                //     error(envelope) {},
+                // }
+                const type     = (shim.type || defType).toLowerCase()
+                const path     = this._compute(shim.path, args) || defPath
+                const params   = this._compute(shim.params, args)   // For GET.
+                const body     = this._compute(shim.body, args)     // For PUT, DELETE, POST.
+                const optArgs  = (type === 'get') ? params : body
+                const options  = this._compute(shim.options, args)
+                const response = shim.response || this.responseHandler
+                const error    = shim.error    || this.errorHandler
+
+                return this.rest[type](path, optArgs, options)
+                    .then(response)
+                    .catch(error)
+            }
+
+            _defaultResponseHandler(envelope)
+            {
+                // By default the response and the error are extracted from
+                // their envelope and are returned.
+                return envelope.response
+            }
+
+            _defaultErrorHandler(envelope)
+            {
+                // By default, the error handler unwrap the error from the envelope
+                // and rejects with it.
+                return Promise.reject(envelope.error || envelope)
+            }
+
+            _compute(val, args)
+            {
+                return Lodash.isFunction(val) ? val(...args) : val
+            }
+        }
+
+        Graphene.RestShim = Graphene.fn.newer(Graphene.RestShimClass)
+    })()
+    // ]]>
+</script>
