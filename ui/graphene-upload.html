@@ -38,11 +38,35 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 --primary-color:      var(--graphene-upload-primary-color);
                 --primary-text-color: var(--graphene-upload-primary-text-color);
+                --error-color:        var(--paper-red-a200);
 
                 --vaadin-upload-button-add: {
                     font-size: 0.8em;
                     background-color: unset;
                     @apply --graphene-upload-button;
+                };
+
+                --vaadin-upload-file: {
+                    margin: 0;
+                    padding: 0;
+                }
+
+                --vaadin-upload-file-error: {
+                    display: none;
+                }
+
+                --vaadin-upload-file-meta-error: {
+                    height: unset;
+                }
+
+                --vaadin-upload-file-canceled: {
+                    animation: none;
+                }
+            }
+
+            vaadin-upload[requested] {
+                --vaadin-upload-buttons: {
+                    display: none;
                 };
             }
         </style>
@@ -53,7 +77,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                        target="[[ path ]]"
                        headers="[[ headers ]]"
                        max-files="[[ maxFiles ]]"
-                       accept="[[ fileTypes ]]">
+                       accept="[[ fileTypes ]]"
+                       requested$="[[ requested ]]">
             <div class="drop-label">
                 <iron-icon icon="cloud-upload"></iron-icon>
                 [[ msg('Drop file here...') ]]
@@ -110,13 +135,23 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         type: Boolean,
                         reflectToAttribute: true,
                     },
+
+                    requested: {
+                        type: Boolean,
+                        value: false,
+                    },
                 },
 
                 listeners: {
+                    'upload-before':  '_uploadBeforeListener',
                     'upload-success': '_uploadSuccessListener',
                     'upload-error':   '_uploadErrorListener',
                     'upload-abort':   '_uploadAbortListener'
                 },
+
+                observers: [
+                    '_requestedObserver(requested)',
+                ],
 
                 //// Lifecycle callbacks. //////////////////////////////////////
 
@@ -124,7 +159,15 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 //// Observers. ////////////////////////////////////////////////
 
+                _requestedObserver(requested) {
+                    this.updateStyles()
+                },
+
                 //// Listeners. ////////////////////////////////////////////////
+
+                _uploadBeforeListener(event, detail) {
+                    this.requested = true
+                },
 
                 _uploadSuccessListener(event, detail) {
                     const response = JSON.parse(detail.xhr.response)
@@ -140,6 +183,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 _uploadAbortListener(event, detail) {
                     this.response = null
+                    this.error = null
+                    this.requested = false
                 },
 
                 //// Public APIs. //////////////////////////////////////////////
