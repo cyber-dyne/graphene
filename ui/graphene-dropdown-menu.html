@@ -116,7 +116,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                              vertical-align="[[ valign ]]"
                              horizontal-align="[[ halign ]]"
                              disabled="[[ disabled ]]"
-                             required="[[ required ]]">
+                             required="[[ required ]]"
+                             invalid="{{ invalid }}">
 
             <div id="Content" class="dropdown-content">
                 <paper-input id="Filter"
@@ -249,6 +250,11 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                     itemHeight: {
                         type: Number,
+                    },
+
+                    invalid: {
+                        type: Boolean,
+                        reflectToAttribute: true,
                     },
                 },
 
