@@ -178,6 +178,25 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         notify: true,
                     },
 
+                    disabled: {
+                        type: Boolean,
+                        value: false,
+                        reflectToAttribute: true,
+                    },
+
+                    required: {
+                        type: Boolean,
+                        value: false,
+                        reflectToAttribute: true,
+                    },
+
+                    invalid: {
+                        type: Boolean,
+                        value: false,
+                        notify: true,
+                        reflectToAttribute: true,
+                    },
+
                     label: {
                         type: String,
                     },
@@ -226,6 +245,10 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         type: Number,
                     },
 
+                    itemHeight: {
+                        type: Number,
+                    },
+
                     valign: {
                         type: String,
                         value: 'top',
@@ -234,27 +257,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     halign: {
                         type: String,
                         value: 'left',
-                    },
-
-                    disabled: {
-                        type: Boolean,
-                        value: false,
-                        reflectToAttribute: true,
-                    },
-
-                    required: {
-                        type: Boolean,
-                        value: false,
-                        reflectToAttribute: true,
-                    },
-
-                    itemHeight: {
-                        type: Number,
-                    },
-
-                    invalid: {
-                        type: Boolean,
-                        reflectToAttribute: true,
                     },
                 },
 
