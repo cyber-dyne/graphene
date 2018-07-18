@@ -138,6 +138,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     const callback = Lodash.isString(handler) ? this[handler] : handler
 
                     callback.apply(this, args)
+
+                    return
                 }
 
                 if (! matched && this.defaultRouter) {
