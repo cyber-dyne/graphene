@@ -10,7 +10,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 <link rel="import" href="graphene-localize-behavior.html"/>
 <link rel="import" href="graphene-rest-behavior.html"/>
 <link rel="import" href="graphene-store-api.html"/>
-<link rel="import" href="graphene-storemodel-behavior.html"/>
 <link rel="import" href="graphene-widgetlifecycle-behavior.html"/>
 
 <script>
@@ -21,52 +20,73 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
         /** @polymerBehavior */
         Graphene.WidgetBehaviorImpl = {
             properties: {
-                widgetId: {
+                storeStatePath: {
                     type: String,
-                    value() {
-                        return this.localName
-                    },
                 },
 
-                modelStatePath: { // From Graphene.StoreModelBehavior.
-                    computed: '_modelStatePathComputer(routesMount, widgetId)',
+                state: {
+                    type: Object,
+                    value: Lodash.stubObject,
                 },
             },
 
             observers: [
-                '_validModelSetter(model, valid, widgetId)',
+                '_fireStepperStepLifecycleChangedEvent(enabled, valid, isAttached)',
             ],
 
             //// Lifecycle callbacks. //////////////////////////////////////
 
             //// Computers. ////////////////////////////////////////////////
 
-            _modelStatePathComputer(routesMount, widgetId) {
-                return `${routesMount}.${widgetId}`
-            },
-
             //// Observers. ////////////////////////////////////////////////
 
-            _validModelSetter(model, valid, widgetId) {
-                if (Lodash.some(arguments, Lodash.isNil)) {
+            _fireStepperStepLifecycleChangedEvent(enabled, valid, isAttached) {
+                if (isAttached !== true) {
+                    // We must be attached to fire the event.
                     return
                 }
 
-                this.set('model.@valid', valid)
+                const eventDetail = {
+                    enabled: enabled,
+                    valid:   valid,
+                }
+
+                this.fire('graphene-stepper-step-lifecycle-changed', eventDetail)
             },
 
             //// Listeners. ////////////////////////////////////////////////
 
             //// Public APIs. //////////////////////////////////////////////
 
-            widgetStateModel(state, widget) {
-                const modelStatePath       = this.modelStatePath                // 'example.a-widget'
-                const lastIndex            = modelStatePath.lastIndexOf('.')
-                const parentStatePath      = modelStatePath.slice(0, lastIndex) // 'example'
-                const widgetStateModelPath = `${parentStatePath}.${widget}`     // 'example.b-widget'
-                const widgetStateModel     = Lodash.get(state, widgetStateModelPath)
+            /*
+            * EXAMPLE
+            * this.mutate('todo.list.count', 99)
+            * this.mutate({ 'books.items': [], 'movies[0]': {} })
+            */
+            mutate(...args) {
+                if (args.length < 1 || args.length > 2) {
+                    throw 'Invalid arguments.'
+                }
 
-                return widgetStateModel
+                const { mutate } = this.store
+                const { storeStatePath } = this
+
+                const absMutations = {}
+                const mutations = args.length === 1
+                    ? args[0]
+                    : {
+                        [args[0]]: args[1],
+                    }
+
+                if (Lodash.isEmpty(mutations)) {
+                    return
+                }
+
+                for (const path in mutations) {
+                    absMutations[`${storeStatePath}.${path}`] = mutations[path]
+                }
+
+                mutate(() => absMutations)
             },
 
             //// Internal APIs. ////////////////////////////////////////////
@@ -77,7 +97,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             Graphene.DatastoreBehavior,
             Graphene.LocalizeBehavior,
             Graphene.RestBehavior,
-            Graphene.StoreModelBehavior,
             Graphene.WidgetLifecycleBehavior,
             Graphene.WidgetBehaviorImpl,
         ]

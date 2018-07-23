@@ -33,7 +33,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             },
 
             observers: [
-                '_widgeLifecycleObserver(enabled, valid, isAttached)',
+                '_fireWidgeLifecycleChangedEvent(enabled, valid, isAttached)',
             ],
 
             //// Lifecycle callbacks. //////////////////////////////////////////
@@ -46,7 +46,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
             //// Observers. ////////////////////////////////////////////////////
 
-            _widgeLifecycleObserver(enabled, valid, isAttached) {
+            _fireWidgeLifecycleChangedEvent(enabled, valid, isAttached) {
                 if (isAttached !== true) {
                     // We must be attached to fire the event.
                     return

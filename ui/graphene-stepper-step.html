@@ -166,7 +166,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 },
 
                 listeners: {
-                    'graphene-widget-lifecycle-changed': '_grapheneWidgetLifecycleChangedListener',
+                    'graphene-stepper-step-lifecycle-changed': '_grapheneStepperStepLifecycleChangedListener',
                 },
 
                 //// Lifecycle callbacks. //////////////////////////////////////
@@ -177,7 +177,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 //// Listeners. ////////////////////////////////////////////////
 
-                _grapheneWidgetLifecycleChangedListener(event, lifecycle) {
+                _grapheneStepperStepLifecycleChangedListener(event, lifecycle) {
                     this.enabled = lifecycle.enabled
                     this.valid   = lifecycle.valid
                 },

@@ -204,9 +204,15 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     titleFormatter: {
                         type: Function,
                         value() {
-                            return (selectedItems) => {
-                                return selectedItems.map(item => item.name).join(', ')
+                            function titleFormatter(selected) {
+                                const title = Lodash.isArray(selected)
+                                    ? selected.map(it => it.name).join(', ')
+                                    : selected.name
+
+                                return title
                             }
+
+                            return titleFormatter
                         },
                     },
 
@@ -266,8 +272,9 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     '_autoSelectionObserver(items, filteredItems)',
                     '_itemsSizeObserver(items, itemHeight, maxHeight)',
 
-                    '_selectedItemsObserver(selectedItems,        titleFormatter)',
-                    '_selectedItemsObserver(selectedItems.length, titleFormatter)',
+                    '_selectedItemsObserver(selectedItem, multi, titleFormatter)',
+                    '_selectedItemsObserver(selectedItems, multi, titleFormatter)',
+                    '_selectedItemsObserver(selectedItems.length, multi, titleFormatter)',
                 ],
 
                 listeners: {
@@ -336,17 +343,27 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     list.style.height = height + 'px'
                 },
 
-                _selectedItemsObserver(selectedItemsChange, titleFormatter) {
+                _selectedItemsObserver(selectedItemsChange, multi, titleFormatter) {
                     // Don't do this because selectedItemsChange is null when
                     // multi is false and the user deselects the item.
                     // if (Lodash.some(arguments, Lodash.isNil)) {
                     //     return
                     // }
+                    const selectedItems = multi
+                        ? this.selectedItems
+                        : this.selectedItem
+                    const title = titleFormatter(selectedItems || { name: '' })
+                    const target = this.$.Content
 
-                    const selectedItems = Lodash.flatten([ this.selectedItems || [] ])
-                    const title         = titleFormatter(selectedItems)
+                    if (title) {
+                        const itemNode = this.create('span', { label: title })
 
-                    this._title(title)
+                        this.fire('iron-select', { item: itemNode }, { node: target })
+                    } else {
+                        this.fire('iron-deselect', undefined, { node: target })
+                    }
+
+                    return this
                 },
 
                 _filteredItemsSetter(items, searchString) {
@@ -425,12 +442,19 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 selectItem(item) {
                     const list = this.$.List
+
+                    if (! list.items) {
+                        return
+                    }
+
                     list.selectItem(item)
                 },
 
                 validate() {
                     const menu = this.$.Menu
-                    return menu.validate()
+                    const valid = menu.validate()
+
+                    return valid
                 },
 
                 //// Internal APIs. ////////////////////////////////////////////
@@ -452,20 +476,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     })
 
                     this.itemHeight = size.height
-                },
-
-                _title(value) {
-                    const target = this.$.Content
-
-                    if (value) {
-                        const itemNode = this.create('span', { label: value })
-
-                        this.fire('iron-select', {item: itemNode}, {node: target})
-                    } else {
-                        this.fire('iron-deselect', undefined, {node: target})
-                    }
-
-                    return this
                 },
 
                 _filterItem(item, search) {
@@ -496,7 +506,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     const dropdownMenu = this.$.Menu
                     const menuButton   = dropdownMenu.$$('paper-menu-button')
 
-                    const selectItem = (item) => {
+                    function selectItem(item) {
                         const index = Lodash(this.filteredItems).findIndex(item)
 
                         if (index < 0) {
@@ -514,13 +524,9 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         }
                     }
 
-                    if (! Array.isArray(selected)) {
-                        selectItem(selected)
+                    const selectedItems = Lodash.flatten([ selected ])
 
-                        return
-                    }
-
-                    selected.forEach(selectItem.bind(this))
+                    selectedItems.forEach(selectItem, this)
                 },
             })
         })()

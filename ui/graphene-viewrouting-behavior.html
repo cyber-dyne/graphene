@@ -45,11 +45,18 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 //    if we would not change the route as soon as possible
                 //  then the resulting route would be the route of the view B
                 //  even if the actual selected view is A.
-                if (lifecycle === 'appearing') {
-                    const route = this.viewRoute || this.routesMount
 
-                    Graphene.Routing.route(route)
+                if (lifecycle !== 'appearing') {
+                    return
                 }
+
+                const route = this.viewRoute || this.routesMount
+
+                if (! route) {
+                    return
+                }
+
+                Graphene.Routing.route(route)
             },
 
             //// Listeners. ////////////////////////////////////////////////////
