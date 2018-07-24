@@ -86,10 +86,14 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     absMutations[`${storeStatePath}.${path}`] = mutations[path]
                 }
 
-                mutate(() => absMutations)
+                mutate(this._mutateWidgetState, absMutations)
             },
 
             //// Internal APIs. ////////////////////////////////////////////
+
+            _mutateWidgetState(state, absMutations) {
+                return absMutations
+            },
         }
 
         /** @polymerBehavior */

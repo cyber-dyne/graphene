@@ -17,7 +17,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 // When greater than zero, we are busy.
                 bgJobs: {
                     type: Number,
-                    value: 0,
                 },
 
                 isBusy: {
@@ -50,7 +49,9 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 event.stopPropagation()
                 event.preventDefault()
 
-                this.bgJobs += 1
+                const current = this.bgJobs ? this.bgJobs : 0 // undefined or 0 to 0.
+
+                this.bgJobs = current + 1
             },
 
             _grapheneBusyReleaseListener(event, detail) {
