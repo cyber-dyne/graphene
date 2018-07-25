@@ -162,6 +162,40 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 }
             },
 
+            diff(newData, oldData, paths=[]) {
+                const changes = {}
+
+                for (let i=0, l=paths.length; i<l; ++i) {
+                    const path = paths[i]
+                    const newValue = Lodash.get(newData, path)
+                    const oldValue = Lodash.get(oldData, path)
+                    const changed = newValue !== oldValue
+
+                    changes[path] = {
+                        changed,
+                        value: newValue,
+                        oldValue: oldValue,
+                    }
+                }
+
+                return changes
+            },
+
+            changes(newData, oldData, paths=[]) {
+                const changes = {}
+
+                for (let i=0, l=paths.length; i<l; ++i) {
+                    const path = paths[i]
+                    const newValue = Lodash.get(newData, path)
+                    const oldValue = Lodash.get(oldData, path)
+                    const changed = newValue !== oldValue
+
+                    changes[path] = changed
+                }
+
+                return changes
+            },
+
             // Usage:
             //   format('A {{ key1 }} message with {{ key2 }}.')
             //     .with('key1', 'val1')

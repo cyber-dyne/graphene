@@ -7,9 +7,10 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 <link rel="import" href="../../polymer/polymer.html"/>
 <link rel="import" href="../lib/lodash.html"/>
 <link rel="import" href="graphene-datastore-behavior.html"/>
+<link rel="import" href="graphene-fn-api.html"/>
 <link rel="import" href="graphene-localize-behavior.html"/>
 <link rel="import" href="graphene-rest-behavior.html"/>
-<link rel="import" href="graphene-store-api.html"/>
+<link rel="import" href="graphene-store-behavior.html"/>
 <link rel="import" href="graphene-widgetlifecycle-behavior.html"/>
 
 <script>
@@ -20,14 +21,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
         /** @polymerBehavior */
         Graphene.WidgetBehaviorImpl = {
             properties: {
-                storeStatePath: {
-                    type: String,
-                },
-
-                state: {
-                    type: Object,
-                    value: Lodash.stubObject,
-                },
             },
 
             observers: [
@@ -58,42 +51,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
             //// Public APIs. //////////////////////////////////////////////
 
-            /*
-            * EXAMPLE
-            * this.mutate('todo.list.count', 99)
-            * this.mutate({ 'books.items': [], 'movies[0]': {} })
-            */
-            mutate(...args) {
-                if (args.length < 1 || args.length > 2) {
-                    throw 'Invalid arguments.'
-                }
-
-                const { mutate } = this.store
-                const { storeStatePath } = this
-
-                const absMutations = {}
-                const mutations = args.length === 1
-                    ? args[0]
-                    : {
-                        [args[0]]: args[1],
-                    }
-
-                if (Lodash.isEmpty(mutations)) {
-                    return
-                }
-
-                for (const path in mutations) {
-                    absMutations[`${storeStatePath}.${path}`] = mutations[path]
-                }
-
-                mutate(this._mutateWidgetState, absMutations)
-            },
-
             //// Internal APIs. ////////////////////////////////////////////
-
-            _mutateWidgetState(state, absMutations) {
-                return absMutations
-            },
         }
 
         /** @polymerBehavior */
@@ -101,6 +59,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             Graphene.DatastoreBehavior,
             Graphene.LocalizeBehavior,
             Graphene.RestBehavior,
+            Graphene.StoreBehavior,
             Graphene.WidgetLifecycleBehavior,
             Graphene.WidgetBehaviorImpl,
         ]

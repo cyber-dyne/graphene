@@ -273,13 +273,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         .replace(/\[/g, '.[')               // a[0] to a.[0]
                         .replace(/^\./, '')                 // .[0] to [0]
 
-                    newState = this._mutateShallow(newState, change, value)
-
-                    // In case the change path doesn't exist the shallow
-                    // mutation doesn't create it. This ensures that the deep
-                    // path is created on the new state without mutating the
-                    // original state.
-                    Lodash.set(newState, change, value)
+                    newState = this._mutateShallow(newState, change, value, newState)
                 }
 
                 this.state = newState
@@ -287,28 +281,43 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 return this
             }
 
-            _mutateShallow(srcState, changePath, value)
+            _mutateShallow(data, path, value, state)
             {
-                const parts = changePath.split('.')     // Of a.b.c     Of [0].b.c
-                const head  = parts[0]                  // a            [0]
-                const tail  = parts.slice(1).join('.')  // b.c          b.c
+                const parts = path.split('.')          // Of a.b.c     Of [0].b.c
+                const head  = parts[0]                 // a            [0]
+                const tail  = parts.slice(1).join('.') // b.c          b.c
 
                 if (head.length === 0) {
                     // head is an empty string because parts = [ '' ] = ''.split('.').
                     // We reached the bottom of the change path, time to return.
+                    if (typeof value === 'function') {
+                        return value(state, this.get)
+                    }
+
                     return value
                 }
 
-                const destState = Lodash.clone(srcState)        // Shallow clone of Array/Object.
-                const srcValue  = Lodash.get(srcState, head)    // One level down in the src state.
-                const destValue = this._mutateShallow(srcValue, tail, value)
+                // We get one level down inside the data.
+                const headData = Lodash.get(data, head)
+                // We perform a shallow mutation of the head data.
+                const headDataValue = this._mutateShallow(headData, tail, value, state)
 
-                // We use Lodash to set on destState head which can be:
+                let newData
+                if (data === undefined) {
+                    // We need to create an empty data structure compatible
+                    // with the change path.
+                    const dataShouldBeArray = head[0] === '['
+
+                    newData = dataShouldBeArray ? [] : {}
+                } else {
+                    newData = Lodash.clone(data)  // Shallow clone of Array/Object.
+                }
+                // We use Lodash to set, on the shallow clone of data, the head data:
                 // - '[n]' for Arrays
                 // - 'prop' for Objects
-                Lodash.set(destState, head, destValue)
+                Lodash.set(newData, head, headDataValue)
 
-                return destState
+                return newData
             }
 
             _actionHandler(promiseCallbacks, fnOrId, ...args)

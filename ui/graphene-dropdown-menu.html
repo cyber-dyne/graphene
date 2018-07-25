@@ -117,7 +117,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                              horizontal-align="[[ halign ]]"
                              disabled="[[ disabled ]]"
                              required="[[ required ]]"
-                             invalid="{{ invalid }}">
+                             invalid="{{ invalid }}"
+                             on-selected-item-changed="_stopEvent">
 
             <div id="Content" class="dropdown-content">
                 <paper-input id="Filter"
@@ -138,6 +139,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                            items="{{ filteredItems }}"
                            selection-enabled
                            multi-selection="[[ multi ]]"
+                           on-selected-item-changed="_stopEvent"
                            on-selected-items-changed="_selectedItemsChanged">
                     <slot id="ContentSlot"></slot>
                 </iron-list>
@@ -513,7 +515,14 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     this.async(focusFilter.bind(this), 400)
                 },
 
+                _stopEvent(event) {
+                    // Internal events must not escaped from the component.
+                    event.stopPropagation()
+                },
+
                 _selectedItemsChanged(event, detail) {
+                    this._stopEvent(event)
+
                     if (this._downwardSelection) {
                         // Downward selection in progress.
                         return
@@ -523,6 +532,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     const target = Polymer.dom(event).localTarget
 
                     if (source !== target) {
+                        // Event can be fired by an internal component
+                        // (ex. paper-dropdown-menu, iron-list and array-selector).
                         return
                     }
 
@@ -554,7 +565,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         ? target.selectedItems.slice()
                         : detail.value
 
-                    const debounceTime = 100
+                    const debounceTime = 50
                     const debounceId = '_selectedItemsChanged'
                     const debounceFn = () => this.set(prop, value)
 

@@ -24,6 +24,24 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     type: Object,
                 },
 
+                prevStoreState: {
+                    type: Object,
+                },
+
+                statePath: {
+                    type: String,
+                    value: '',
+                },
+
+                state: {
+                    type: Object,
+                    computed: '_stateComputer(storeState, statePath)',
+                },
+
+                prevState: {
+                    type: Object,
+                },
+
                 storePlugins: {
                     type: Array,
                 },
@@ -71,6 +89,16 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
             //// Computers. ////////////////////////////////////////////////////
 
+            _stateComputer(storeState, statePath) {
+                this.prevState = this.state
+
+                if (statePath) {
+                    return Lodash.get(storeState, statePath)
+                }
+
+                return storeState
+            },
+
             //// Observers. ////////////////////////////////////////////////////
 
             _storeObserver(store, isAttached) {
@@ -103,10 +131,47 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 // This API is called by the store when the state changes.
                 // We can't use Graphene.Store.stateDidChange symbol because
                 // Polymer doesn't support symbols when mixing behaviors.
+                this.prevStoreState = this.storeState
                 this.storeState = state
             },
 
+            /*
+            * EXAMPLE
+            * this.mutate('todo.list.count', 99)
+            * this.mutate({ 'books.items': [], 'movies[0]': {} })
+            */
+            mutate(...args) {
+                if (args.length < 1 || args.length > 2) {
+                    throw 'Invalid arguments.'
+                }
+
+                const { mutate } = this.store
+                const { statePath } = this
+
+                const absMutations = {}
+                const mutations = args.length === 1
+                    // First and only argument is an array of mutations.
+                    ? args[0]
+                    // First argument is the path of the mutation, second
+                    // argument is the value of the mutation.
+                    : { [args[0]]: args[1] }
+
+                if (Lodash.isEmpty(mutations)) {
+                    return
+                }
+
+                for (const path in mutations) {
+                    absMutations[`${statePath}.${path}`] = mutations[path]
+                }
+
+                mutate(this._mutateWidgetState, absMutations)
+            },
+
             //// Internal APIs. ////////////////////////////////////////////////
+
+            _mutateWidgetState(state, absMutations) {
+                return absMutations
+            },
         }
     })()
     // ]]>
