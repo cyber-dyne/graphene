@@ -23,39 +23,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 display: block;
             }
 
-            #List ::slotted(template ~ *),      /* Shadow DOM */
-            #List ::slotted(* > template ~ *) { /* Shady DOM  */
-                display: inline-block;  /* For vertical-align. */
-
-                padding: 0 var(--graphene-gutter-s);
-
-                line-height:    2.2em;
-                letter-spacing: -0.02em;
-                font-weight:    400;
-
-                vertical-align: middle;
-                overflow:       hidden;
-                text-overflow:  ellipsis;
-
-            }
-
-            #List ::slotted(template ~ [selected]),      /* Shadow DOM */
-            #List ::slotted(* > template ~ [selected]) { /* Shady DOM  */
-                color:            var(--graphene-dropdown-menu-selected-item-color);
-                background-color: var(--graphene-dropdown-menu-selected-item-background-color);
-            }
-
-            #List ::slotted(template ~ *:focus),      /* Shadow DOM */
-            #List ::slotted(* > template ~ *:focus) { /* Shady DOM  */
-                outline: none;
-                background-color: var(--graphene-dropdown-menu-focus-color);
-            }
-
-            #List ::slotted(template ~ *:hover),      /* Shadow DOM */
-            #List ::slotted(* > template ~ *:hover) { /* Shady DOM  */
-                background-color: var(--graphene-dropdown-menu-focus-color);
-            }
-
             paper-dropdown-menu {
                 width: 100%;
                 --paper-input-container-underline: {
@@ -72,20 +39,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 };
             }
 
-            iron-list {
-                width:  var(--graphene-dropdown-menu-width,  400px);
-                height: var(--graphene-dropdown-menu-height, 400px);
-
+            #Content {
                 background-color: var(--graphene-dropdown-menu-background-color);
-
-                cursor: pointer;
-
-                --iron-list-items-container: {
-                    font-size: 0.9em;
-
-                    color:            var(--graphene-dropdown-menu-color);
-                    background-color: var(--graphene-dropdown-menu-background-color);
-                };
             }
 
             #Filter {
@@ -109,6 +64,63 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     color:        var(--paper-grey-500);
                 };
             }
+
+            #EmptyItem,
+            #List > * {
+                padding: 0 var(--graphene-gutter-s);
+
+                line-height:    2.2em;
+                letter-spacing: -0.02em;
+                font-weight:    400;
+
+                vertical-align: middle;
+                overflow:       hidden;
+                text-overflow:  ellipsis;
+            }
+
+            #List > * {
+                display: inline-block;  /* For vertical-align. */
+            }
+
+            #EmptyItem {
+                cursor: pointer;
+                font-size: 0.9em;
+                color:            var(--graphene-dropdown-menu-color);
+                background-color: var(--graphene-dropdown-menu-background-color);
+
+                user-select: none;
+                -webkit-user-select: none;
+            }
+
+            #List {
+                /* <iron-list> */
+                width:  var(--graphene-dropdown-menu-width,  400px);
+                height: var(--graphene-dropdown-menu-height, 400px);
+
+                cursor: pointer;
+
+                --iron-list-items-container: {
+                    font-size: 0.9em;
+
+                    color:            var(--graphene-dropdown-menu-color);
+                    background-color: var(--graphene-dropdown-menu-background-color);
+                };
+            }
+
+            #EmptyItem:hover,
+            #List > *:hover {
+                background-color: var(--graphene-dropdown-menu-focus-color);
+            }
+
+            #List > *[selected] {
+                color:            var(--graphene-dropdown-menu-selected-item-color);
+                background-color: var(--graphene-dropdown-menu-selected-item-background-color);
+            }
+
+            #List > *:focus {
+                outline: none;
+                background-color: var(--graphene-dropdown-menu-focus-color);
+            }
         </style>
 
         <paper-dropdown-menu id="Menu"
@@ -122,26 +134,40 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
             <div id="Content" class="dropdown-content">
                 <paper-input id="Filter"
-                             value="{{ search }}"
                              type="search"
                              no-label-float
-                             hidden$="[[ ! filter ]]">
+                             hidden$="[[ ! filter ]]"
+                             on-value-changed="_searchValueChanged">
                     <iron-icon icon="icons:search" prefix></iron-icon>
                 </paper-input>
 
                 <slot id="HeaderSlot" name="header"></slot>
 
                 <!--
+                <div id="EmptyItem"
+                     on-tap="_onDeselectTap"
+                     hidden$="[[ ! _deselectIsEnabled(deselectable, multi) ]]">
+                    &nbsp;
+                </div>
+                -->
+
+                <!--
                 | iron-list doesn't support selecting an item through the binding
                 | but requires an imperative call of the method .selectItem().
                 -->
                 <iron-list id="List"
-                           items="{{ filteredItems }}"
+                           items="[[ filteredItems ]]"
                            selection-enabled
                            multi-selection="[[ multi ]]"
                            on-selected-item-changed="_stopEvent"
                            on-selected-items-changed="_selectedItemsChanged">
-                    <slot id="ContentSlot"></slot>
+                    <template>
+                        <div tabindex$="[[ tabIndex ]]"
+                             selected$="[[ selected ]]"
+                             off-on-tap="_preventDeselect">
+                            [[ _itemText(item, itemField) ]]
+                        </div>
+                    </template>
                 </iron-list>
 
                 <slot id="FooterSlot" name="footer"></slot>
@@ -173,9 +199,14 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         value: 'item',
                     },
 
-                    selectedItem: {
-                        type: Object,
-                        notify: true,
+                    itemField: {
+                        type: String,
+                        value: 'name',
+                    },
+
+                    filteredItems: {
+                        type: Array,
+                        computed: '_filteredItemsComputer(items, search)',
                     },
 
                     selectedItems: {
@@ -227,6 +258,12 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         reflectToAttribute: true,
                     },
 
+                    // deselectable: {
+                    //     type: Boolean,
+                    //     value: false,
+                    //     reflectToAttribute: true,
+                    // },
+
                     manualSelect: {
                         type: Boolean,
                         value: false,
@@ -244,12 +281,9 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         },
                     },
 
-                    filteredItems: {
-                        type: Array,
-                    },
-
                     search: {
                         type: String,
+                        value: '',
                     },
 
                     maxHeight: {
@@ -272,15 +306,12 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 },
 
                 observers: [
-                    '_setFilteredItems(items, search)',
                     '_setItemsSize(items, itemHeight, maxHeight)',
 
-                    '_selectAuto(items, filteredItems)',
+                    '_selectAuto(items, multi)',
 
-                    '_select(filteredItems, selectedItem)',
                     '_select(filteredItems, selectedItems)',
 
-                    '_setTitle(selectedItem, multi, titleFormatter)',
                     '_setTitle(selectedItems, multi, titleFormatter)',
                     '_setTitle(selectedItems.length, multi, titleFormatter)',
                 ],
@@ -291,54 +322,29 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 //// Lifecycle callbacks. //////////////////////////////////////
 
-                ready() {
-                    // We need to monitor the Light DOM under Shady DOMs
-                    // to scope the styles of the nodes generated by the iron-list.
-                    this.scopeSubtree(this, true)
-
-                    this._setFilteredItems = Lodash.debounce(this._setFilteredItems, 400)
-                },
-
-                attached() {
-                    const contentSlot  = Polymer.dom(this.$.ContentSlot)
-                    const slotObserver = contentSlot.observeNodes(this._slotObserver.bind(this))
-
-                    this._slotObserverId = slotObserver
-                },
-
-                detached() {
-                    const contentSlot = Polymer.dom(this.$.ContentSlot)
-
-                    contentSlot.unobserveNodes(this._slotObserverId)
-                },
-
                 //// Computers. ////////////////////////////////////////////////
 
-                //// Observers. ////////////////////////////////////////////////
+                _filteredItemsComputer(items, search) {
+                    // We have to skip the iron-list selection reset when
+                    // items change. It results in a selected-items-changed
+                    // with detail.value === null for single selection
+                    // and detail.value === [] for multi selection.
+                    this._downwardItems = true
 
-                _setFilteredItems(items, searchString) {
-                    const search      = searchString.trim()
-                    let selectedItems = Lodash.clone(this.selectedItems)
+                    const query = search.trim().toLowerCase()
 
-                    if (search === '') {
-                        // Optimization
-                        this.filteredItems = items
-                        this._restoreSelectedItems(selectedItems)
+                    // Optimization.
+                    const filteredItems = query
+                        ? items.filter(it => this._doesMatch(it, query))
+                        : items
 
-                        return
-                    }
+                    // Safe lock release.
+                    this.async(() => this._downwardItems = false, 300)
 
-                    const searchLc      = search.toLowerCase()
-                    const filteredItems = items.filter(item => this._filterItem(item, searchLc), this)
-
-                    if (! Lodash.isNil(selectedItems)) {
-                        selectedItems = Array.isArray(selectedItems) ? selectedItems : [selectedItems]
-                    }
-
-                    this.filteredItems = Lodash.unionWith(filteredItems, selectedItems, Lodash.isEqual)
-
-                    this._restoreSelectedItems(selectedItems)
+                    return filteredItems
                 },
+
+                //// Observers. ////////////////////////////////////////////////
 
                 _setItemsSize(items, itemHeight, maxHeight) {
                     if (Lodash.some(arguments, Lodash.isNil)) {
@@ -358,7 +364,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     list.style.height = height + 'px'
                 },
 
-                _selectAuto(items, filteredItems) {
+                _selectAuto(items, multi) {
                     if (Lodash.some(arguments, Lodash.isNil)) {
                         return
                     }
@@ -367,13 +373,19 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         return
                     }
 
-                    if (items.length !== 1 || filteredItems.length !== 1) {
+                    if (items.length !== 1) {
                         return
                     }
 
-                    const list = this.$.List
+                    const selectedAuto = multi
+                        ? items.slice(0, 1)
+                        : items[0]
 
-                    list.selectItem(0)
+                    if (multi && Lodash.isEqual(selectedAuto, this.selectedItems)) {
+                        return
+                    }
+
+                    this.selectedItems = selectedAuto
                 },
 
                 _select(items, selected) {
@@ -411,7 +423,9 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         // the graphene-dropdown-menu.
                         selectedItems.forEach(it => {
                             if (! list.items.includes(it)) {
+                                // It's ok, maybe because the user is filtering.
                                 console.debug(this.localName, 'has not the item:', it, 'in', list.items, this)
+
                                 return
                             }
 
@@ -435,7 +449,9 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     }
 
                     if (! list.items.includes(selected)) {
+                        // It's ok, maybe because the user is filtering.
                         console.debug(this.localName, 'has not the item:', selected, 'in', list.items, this)
+
                         return
                     }
 
@@ -454,9 +470,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     //     return
                     // }
 
-                    const selectedItems = multi
-                        ? this.selectedItems
-                        : this.selectedItem
+                    const selectedItems = this.selectedItems
                     const title = titleFormatter(selectedItems || { name: '' })
                     const target = this.$.Content
 
@@ -537,12 +551,20 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         return
                     }
 
+                    if (this._downwardItems === true) {
+                        // We have to skip the iron-list selection reset when
+                        // items change.
+                        this._downwardItems = false
+
+                        return
+                    }
+
                     // This function can be executed for 5 reasons.
-                    // When this.multi is true, for a
+                    // When multi selection is true, for a
                     // - '.splices' notification (detail.path includes '.splices')
                     // - '.length' notification (detail.path includes '.length')
                     // - <iron-list>.clearSelection() (detail.value === [])
-                    // When this.multi is false, for
+                    // When multi selection is false, for
                     // - deselect (detail.value === null)
                     // - select (detail.value is the item)
 
@@ -556,18 +578,80 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         return
                     }
 
-                    const prop = this.multi
-                        ? 'selectedItems'
-                        : 'selectedItem'
+                    // We can't use this.multi because it can be undefined,
+                    // when the iron-list fires the event before we are ready.
+                    // It happens and bad things follows to it.
+                    const isMulti = target.multiSelection
 
-                    const value = this.multi
+                    // if (isMulti) {
+                    //     const oldItems = this.selectedItems
+                    //     const newItems = target.selectedItems
+                    //
+                    //     // iron-list fires a change event after we propagate
+                    //     // downward the changes.  Due to the selectedItems.slice(),
+                    //     // selectedItems is always a new array and we can't
+                    //     // simply assign it to this.selectedItems because it
+                    //     // would trigger a change and an other iron-list event
+                    //     // resulting in an infinite loop. We must stop it.
+                    //     if (Lodash.isEqual(oldItems, newItems)) {
+                    //         // Nothing actually changed. We can skip it.
+                    //         return
+                    //     }
+                    // }
+
+                    const value = isMulti
                         // We shallow clone the array because Polymer mutates in place.
                         ? target.selectedItems.slice()
+                        // target.selectedItem has the old value (not yet updated).
+                        // detail.value has the updated value.
                         : detail.value
 
-                    const debounceTime = 50
+                    const debounceTime = 100
                     const debounceId = '_selectedItemsChanged'
-                    const debounceFn = () => this.set(prop, value)
+                    const debounceFn = () => this.selectedItems = value
+
+                    this.debounce(debounceId, debounceFn, debounceTime)
+                },
+
+                // _preventDeselect(event) {
+                //     const target = Polymer.dom(event).localTarget
+                //
+                //     if (this.multi) {
+                //         return
+                //     }
+                //
+                //     if (! target.hasAttribute('selected')) {
+                //         return
+                //     }
+                //
+                //     event.stopPropagation()
+                // },
+
+                // _onDeselectTap(event) {
+                //     const menu = this.$.Menu
+                //
+                //
+                //     menu.close()
+                //
+                //     this.selectedItems = null
+                // },
+
+                _searchValueChanged(event, detail) {
+                    const value = detail.value
+                    const debounceId = '_searchValueChanged'
+                    const debounceTime = 300
+                    const debounceFn = () => {
+                        // We have to skip the iron-list selection reset when
+                        // items change. It results in a selected-items-changed
+                        // with detail.value === null for single selection
+                        // and detail.value === [] for multi selection.
+                        this._downwardItems = true
+
+                        this.search = value
+
+                        // Safe lock release.
+                        this.async(() => this._downwardItems = false, 300)
+                    }
 
                     this.debounce(debounceId, debounceFn, debounceTime)
                 },
@@ -589,76 +673,56 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 //// Internal APIs. ////////////////////////////////////////////
 
-                _slotObserver(info) {
-                    // const children = this.getEffectiveChildren()
-                    const newNodes = info.addedNodes
+                // _deselectIsEnabled(deselectable, multi) {
+                //     return multi !== true && deselectable === true
+                // },
 
-                    // Remember, template tags have height and width of 0.
-                    const items = newNodes.filter(node => node.nodeType === Element.ELEMENT_NODE)
-
-                    if (items.length === 0) {
-                        return
-                    }
-                    const size = { height: 0, width: 0 }
-
-                    items.forEach(item => {
-                        size.height = Math.max(item.offsetHeight, size.height, this.itemHeight || 0)
-                    })
-
-                    this.itemHeight = size.height
+                _itemText(item, path) {
+                    return Lodash.get(item, path)
                 },
 
-                _filterItem(item, search) {
-                    let itemText = ''
+                _doesMatch(item, query) {
                     const fields = this.filterFields
+                    const text = fields.reduce((text, field) =>
+                         text + (item[field] || '').toLowerCase()
+                    , '')
+                    const doesMatch = text.includes(query)
 
-                    function stringify(field) {
-                        // Prevents from searching into non existing fields
-                        if (item[field] === undefined) {
-                            return
-                        }
-
-                        itemText += item[field].toLowerCase()
-                    }
-
-                    fields.forEach(stringify)
-
-                    const index = itemText.indexOf(search)
-                    return index > -1
+                    return doesMatch
                 },
 
-                _restoreSelectedItems(selected) {
-                    if (Lodash.some(arguments, Lodash.isNil) || this.filteredItems.length === 0 || ! this.filter) {
-                        return
-                    }
-
-                    const list         = this.$.List
-                    const dropdownMenu = this.$.Menu
-                    const menuButton   = dropdownMenu.$$('paper-menu-button')
-
-                    function selectItem(item) {
-                        const index = Lodash(this.filteredItems).findIndex(item)
-
-                        if (index < 0) {
-                            return
-                        }
-
-                        const isMulti = this.$.List.multiSelection
-
-                        if (isMulti) {
-                            list.selectItem(index)
-                        }
-                        else {
-                            this.configurePaperMenuButton(menuButton, false)
-                            list.selectItem(index)
-                            this.configurePaperMenuButton(menuButton, true)
-                        }
-                    }
-
-                    const selectedItems = Lodash.flatten([ selected ])
-
-                    selectedItems.forEach(selectItem, this)
-                },
+                // _restoreSelectedItems(selected) {
+                //     if (Lodash.some(arguments, Lodash.isNil) || this.filteredItems.length === 0 || ! this.filter) {
+                //         return
+                //     }
+                //
+                //     const list         = this.$.List
+                //     const dropdownMenu = this.$.Menu
+                //     const menuButton   = dropdownMenu.$$('paper-menu-button')
+                //
+                //     function selectItem(item) {
+                //         const index = Lodash(this.filteredItems).findIndex(item)
+                //
+                //         if (index < 0) {
+                //             return
+                //         }
+                //
+                //         const isMulti = this.$.List.multiSelection
+                //
+                //         if (isMulti) {
+                //             list.selectItem(index)
+                //         }
+                //         else {
+                //             this.configurePaperMenuButton(menuButton, false)
+                //             list.selectItem(index)
+                //             this.configurePaperMenuButton(menuButton, true)
+                //         }
+                //     }
+                //
+                //     const selectedItems = Lodash.flatten([ selected ])
+                //
+                //     selectedItems.forEach(selectItem, this)
+                // },
             })
         })()
         // ]]>

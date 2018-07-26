@@ -17,6 +17,11 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
         const on = Graphene.fn.invokeOn
 
+        const regex = {
+            square: /\[/g,
+            dotSquare: /^\./,
+        }
+
         /** @polymerBehavior */
         Graphene.StoreClass = class
         {
@@ -266,14 +271,22 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 let newState  = this.state
                 const changes = fn(newState, ...args)
 
-                for (const change in changes) {
-                    const value = changes[change]
+                for (const changePath in changes) {
+                    const changeValue = changes[changePath]
+                    const dotPath = changePath
+                        .replace(regex.square, '.[')        // a[0] to a.[0]
+                        .replace(regex.dotSquare, '')       // .[0] to [0]
+                    const oldValue = Lodash.get(newState, changePath)
+                    const newValue = typeof changeValue === 'function'
+                        ? changeValue(newState, this.get)
+                        : changeValue
 
-                    const changePath = change
-                        .replace(/\[/g, '.[')               // a[0] to a.[0]
-                        .replace(/^\./, '')                 // .[0] to [0]
+                    if (newValue === oldValue) {
+                        // We mutate only if new value and old value differ.
+                        continue
+                    }
 
-                    newState = this._mutateShallow(newState, change, value, newState)
+                    newState = this._mutateShallow(newState, dotPath.split('.'), newValue)
                 }
 
                 this.state = newState
@@ -281,26 +294,23 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 return this
             }
 
-            _mutateShallow(data, path, value, state)
+            _mutateShallow(data, path, value)
             {
-                const parts = path.split('.')          // Of a.b.c     Of [0].b.c
-                const head  = parts[0]                 // a            [0]
-                const tail  = parts.slice(1).join('.') // b.c          b.c
+                // Of       a.[0].c     [0].b.c     a
+                // head     a           [0]         a
+                // tail     [0].c       b.c
+                const head = path[0]
 
-                if (head.length === 0) {
-                    // head is an empty string because parts = [ '' ] = ''.split('.').
-                    // We reached the bottom of the change path, time to return.
-                    if (typeof value === 'function') {
-                        return value(state, this.get)
-                    }
-
+                if (head === void null) {
+                    // We reached the bottom of the change path. Time to return.
                     return value
                 }
 
+                const tail = path.slice(1)
                 // We get one level down inside the data.
                 const headData = Lodash.get(data, head)
                 // We perform a shallow mutation of the head data.
-                const headDataValue = this._mutateShallow(headData, tail, value, state)
+                const headDataValue = this._mutateShallow(headData, tail, value)
 
                 let newData
                 if (data === undefined) {
