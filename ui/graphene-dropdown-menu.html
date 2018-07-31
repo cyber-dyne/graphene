@@ -143,29 +143,23 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 <slot id="HeaderSlot" name="header"></slot>
 
-                <!--
                 <div id="EmptyItem"
-                     on-tap="_onDeselectTap"
-                     hidden$="[[ ! _deselectIsEnabled(deselectable, multi) ]]">
+                     on-tap="_onEmptyItemTap"
+                     hidden$="[[ ! _emptyItemIsEnabled(emptyItem, deselectable, multi) ]]">
                     &nbsp;
                 </div>
-                -->
 
                 <!--
                 | iron-list doesn't support selecting an item through the binding
                 | but requires an imperative call of the method .selectItem().
                 -->
                 <iron-list id="List"
-                           items="[[ filteredItems ]]"
-                           selection-enabled
-                           multi-selection="[[ multi ]]"
-                           on-selected-item-changed="_stopEvent"
-                           on-selected-items-changed="_selectedItemsChanged">
+                           items="[[ filteredItems ]]">
                     <template>
-                        <div tabindex$="[[ tabIndex ]]"
-                             selected$="[[ selected ]]"
-                             off-on-tap="_preventDeselect">
-                            [[ _itemText(item, itemField) ]]
+                        <div tabindex$="[[ _tabIndex(item, index) ]]"
+                             selected$="[[ _selected(selectedItems, item, index, multi) ]]"
+                             on-tap="_onItemTap">
+                            [[ itemTitleFormatter(item, index, itemTitlePath) ]]
                         </div>
                     </template>
                 </iron-list>
@@ -190,28 +184,31 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 ],
 
                 properties: {
-                    items: {
-                        type: Array,
-                    },
-
-                    itemAs: {
+                    label: {
                         type: String,
-                        value: 'item',
                     },
 
-                    itemField: {
-                        type: String,
-                        value: 'name',
+                    titleFormatter: {
+                        type: Function,
+                        computed: '_titleFormatterComputer(titleFormatterFn, itemTitleFormatter)',
                     },
 
-                    filteredItems: {
-                        type: Array,
-                        computed: '_filteredItemsComputer(items, search)',
-                    },
+                    titleFormatterFn: {
+                        type: Function,
+                        value() {
+                            return function titleFormatter(selected, itemTitleFormatter) {
+                                if (! selected) {
+                                    return
+                                }
 
-                    selectedItems: {
-                        type: Object,
-                        notify: true,
+                                const selectedItems = Array.isArray(selected)
+                                    ? selected
+                                    : [ selected ]
+                                const title = selectedItems.map(itemTitleFormatter).join(', ')
+
+                                return title
+                            }
+                        },
                     },
 
                     disabled: {
@@ -233,23 +230,37 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         reflectToAttribute: true,
                     },
 
-                    label: {
-                        type: String,
+                    items: {
+                        type: Array,
                     },
 
-                    titleFormatter: {
+                    filteredItems: {
+                        type: Array,
+                        computed: '_filteredItemsComputer(items, search)',
+                    },
+
+                    itemTitlePath: {
+                        type: String,
+                        value: 'name',
+                    },
+
+                    itemTitleFormatter: {
+                        type: Function,
+                        computed: '_itemTitleFormatterComputer(itemTitleFormatterFn, itemTitlePath)',
+                    },
+
+                    itemTitleFormatterFn: {
                         type: Function,
                         value() {
-                            function titleFormatter(selected) {
-                                const title = Lodash.isArray(selected)
-                                    ? selected.map(it => it.name).join(', ')
-                                    : selected.name
-
-                                return title
+                            return function itemTitleFormatter(item, index, path) {
+                                return Lodash.get(item, path)
                             }
-
-                            return titleFormatter
                         },
+                    },
+
+                    selectedItems: {
+                        type: Object,
+                        notify: true,
                     },
 
                     multi: {
@@ -258,13 +269,24 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         reflectToAttribute: true,
                     },
 
-                    // deselectable: {
-                    //     type: Boolean,
-                    //     value: false,
-                    //     reflectToAttribute: true,
-                    // },
+                    emptyItem: {
+                        type: Boolean,
+                        value: false,
+                        reflectToAttribute: true,
+                    },
 
-                    manualSelect: {
+                    deselectable: {
+                        type: Boolean,
+                        value: false,
+                        reflectToAttribute: true,
+                    },
+
+                    autoSelect: {
+                        type: Boolean,
+                        value: false,
+                    },
+
+                    autoReset: {
                         type: Boolean,
                         value: false,
                     },
@@ -307,13 +329,9 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 observers: [
                     '_setItemsSize(items, itemHeight, maxHeight)',
-
-                    '_selectAuto(items, multi)',
-
-                    '_select(filteredItems, selectedItems)',
-
-                    '_setTitle(selectedItems, multi, titleFormatter)',
-                    '_setTitle(selectedItems.length, multi, titleFormatter)',
+                    '_selectAuto(items, multi, autoSelect)',
+                    '_resetAuto(items, autoReset, autoSelect, multi)',
+                    '_setTitle(selectedItems, titleFormatter)',
                 ],
 
                 listeners: {
@@ -324,22 +342,24 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 //// Computers. ////////////////////////////////////////////////
 
-                _filteredItemsComputer(items, search) {
-                    // We have to skip the iron-list selection reset when
-                    // items change. It results in a selected-items-changed
-                    // with detail.value === null for single selection
-                    // and detail.value === [] for multi selection.
-                    this._downwardItems = true
+                _titleFormatterComputer(titleFormatterFn, itemTitleFormatter, itemTitlePath) {
+                    return function titleFormatterWrapper(selected) {
+                        return titleFormatterFn(selected, itemTitleFormatter, itemTitlePath)
+                    }
+                },
 
+                _itemTitleFormatterComputer(itemTitleFormatterFn, itemTitlePath) {
+                    return function itemTitleFormatterWrapper(item, index) {
+                        return itemTitleFormatterFn(item, index, itemTitlePath)
+                    }
+                },
+
+                _filteredItemsComputer(items, search) {
                     const query = search.trim().toLowerCase()
 
-                    // Optimization.
                     const filteredItems = query
                         ? items.filter(it => this._doesMatch(it, query))
-                        : items
-
-                    // Safe lock release.
-                    this.async(() => this._downwardItems = false, 300)
+                        : items // Optimization.
 
                     return filteredItems
                 },
@@ -364,12 +384,12 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     list.style.height = height + 'px'
                 },
 
-                _selectAuto(items, multi) {
+                _selectAuto(items, multi, autoSelect) {
                     if (Lodash.some(arguments, Lodash.isNil)) {
                         return
                     }
 
-                    if (this.manualSelect === true) {
+                    if (autoSelect !== true) {
                         return
                     }
 
@@ -377,93 +397,74 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         return
                     }
 
-                    const selectedAuto = multi
-                        ? items.slice(0, 1)
-                        : items[0]
+                    const autoSelected = items[0]
 
-                    if (multi && Lodash.isEqual(selectedAuto, this.selectedItems)) {
+                    const isMultiSelected = multi
+                        && this.selectedItems
+                        && this.selectedItems[0] === autoSelected
+
+                    if (isMultiSelected) {
+                        // Auto selection candidate is already selected. We
+                        // must stop otherwise we would tigger a change event
+                        // with the same selected item but in a new array,
+                        // breaking the Polymer dirty checking.
+                        // This is only true for multi selection because in
+                        // single selection assigning an object to a property
+                        // with the same object does not trigger a change.
                         return
                     }
 
-                    this.selectedItems = selectedAuto
+                    this.selectedItems = multi
+                        ? [ autoSelected ]
+                        : autoSelected
                 },
 
-                _select(items, selected) {
-                    const list = this.$.List
-
-                    if (! items) {
+                _resetAuto(items, autoReset, autoSelect, multi) {
+                    // This method must not observe selectedItems, but only
+                    // acting when the items change.
+                    if (Lodash.some(arguments, Lodash.isNil)) {
                         return
                     }
 
-                    if (! list.items) {
-                        // This should not happen.
+                    if (autoSelect && items.length === 1) {
+                        // We must not conflitct with the auto select.
                         return
                     }
 
-                    if (this.multi) {
-                        // We are handling a multi selection.
-
-                        // 1) We begin a downward propagation.
-                        this._downwardSelection = true
-
-                        const selectedItems = selected || [] // 'selected' could be null or undefined.
-
-                        // 2)
-                        // We deselect on the iron-list every item not selected
-                        // in the graphene-dropdown-menu.
-                        list.items.forEach(it => {
-                            if (! selectedItems.includes(it)) {
-                                // The iron-list item is not in the list of the
-                                // selected items. We must deselect it.
-                                list.deselectItem(it)
-                            }
-                        })
-                        // 3)
-                        // We select on the iron-list every item selected in
-                        // the graphene-dropdown-menu.
-                        selectedItems.forEach(it => {
-                            if (! list.items.includes(it)) {
-                                // It's ok, maybe because the user is filtering.
-                                console.debug(this.localName, 'has not the item:', it, 'in', list.items, this)
-
-                                return
-                            }
-
-                            list.selectItem(it)
-                        })
-
-                        // 4) We end the downward propagation.
-                        this._downwardSelection = false
-
+                    if (! this.selectedItems) {
+                        // Nothing to reset.
                         return
                     }
 
-                    if (Lodash.isNil(selected)) {
-                        // We are handing a single selection dropdown and we
-                        // have to deselect the item of the iron-list.
-                        this._downwardSelection = true
-                        list.clearSelection()
-                        this._downwardSelection = false
-
+                    if (multi && this.selectedItems.length === 0) {
+                        // Nothing to reset.
                         return
                     }
 
-                    if (! list.items.includes(selected)) {
-                        // It's ok, maybe because the user is filtering.
-                        console.debug(this.localName, 'has not the item:', selected, 'in', list.items, this)
+                    if (multi) {
+                        const availableItems = this.selectedItems.filter(it =>
+                            items.includes(it)
+                        )
 
-                        return
+                        if (availableItems.length === this.selectedItems.length) {
+                            // All selected items are available in the items list.
+                            // We have nothing to reset.
+                            return
+                        }
+
+                        if (availableItems.length > 0) {
+                            // Some selected items are available in the items list.
+                            // We fix the selected items.
+                            this.selectedItems = availableItems
+
+                            return
+                        }
                     }
 
-                    // We are handling a single selection dropdown and we have
-                    // to select on the iron-list the selected item of the
-                    // graphene-dropdown-menu.
-                    this._downwardSelection = true
-                    list.selectItem(selected)
-                    this._downwardSelection = false
+                    this.selectedItems = null
                 },
 
-                _setTitle(selectedItemsChange, multi, titleFormatter) {
+                _setTitle(selectedItemsChange, titleFormatter) {
                     // Don't do this because selectedItemsChange is null when
                     // multi is false and the user deselects the item.
                     // if (Lodash.some(arguments, Lodash.isNil)) {
@@ -471,19 +472,18 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     // }
 
                     const selectedItems = this.selectedItems
-                    const title = titleFormatter(selectedItems || { name: '' })
+                    const title = titleFormatter(selectedItems)
                     const target = this.$.Content
 
-                    if (title) {
-                        const itemNode = this.create('span', { label: title })
-
-                        this.fire('iron-select', { item: itemNode }, { node: target })
-                    }
-                    else {
+                    if (! title) {
                         this.fire('iron-deselect', undefined, { node: target })
+
+                        return
                     }
 
-                    return this
+                    const itemNode = this.create('span', { label: title })
+
+                    this.fire('iron-select', { item: itemNode }, { node: target })
                 },
 
                 //// Listeners. ////////////////////////////////////////////////
@@ -519,14 +519,11 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         return
                     }
 
-                    function focusFilter() {
-                        const input = this.$.Filter.inputElement
-                        input.focus()
-                    }
+                    const input = this.$.Filter.inputElement
 
                     // We want to focus the filter input, with a delay due to the
                     // dropdown content opening animation
-                    this.async(focusFilter.bind(this), 400)
+                    this.async(() => input.focus(), 400)
                 },
 
                 _stopEvent(event) {
@@ -534,83 +531,37 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     event.stopPropagation()
                 },
 
-                _selectedItemsChanged(event, detail) {
-                    this._stopEvent(event)
-
-                    if (this._downwardSelection) {
-                        // Downward selection in progress.
-                        return
-                    }
-
-                    const source = Polymer.dom(event).rootTarget
+                _onItemTap(event) {
                     const target = Polymer.dom(event).localTarget
+                    const list = this.$.List
+                    const model = list.modelForElement(target)
+                    const as = list.as
+                    const indexAs = list.indexAs
+                    const item = model[as]
+                    const index = model[indexAs]
+                    const alreadySelected = this._selected(this.selectedItems, item, index, this.multi)
 
-                    if (source !== target) {
-                        // Event can be fired by an internal component
-                        // (ex. paper-dropdown-menu, iron-list and array-selector).
-                        return
+                    if (this.multi) {
+                        const dropdownMenu = this.$.Menu
+                        const menuButton = dropdownMenu.$$('paper-menu-button')
+                        const selectedItems = this.selectedItems || []
+
+                        // We prevent the dropdown from closing during a multi selection.
+                        this.configurePaperMenuButton(menuButton, false)
+
+                        this.selectedItems = alreadySelected
+                            ? selectedItems.filter(it => it !== item)
+                            : selectedItems.concat([ item ])
+
+                        // We restore the normal behavior, in case the selection
+                        // mode changes.
+                        this.configurePaperMenuButton(menuButton, true)
                     }
-
-                    if (this._downwardItems === true) {
-                        // We have to skip the iron-list selection reset when
-                        // items change.
-                        this._downwardItems = false
-
-                        return
+                    else {
+                        this.selectedItems = alreadySelected
+                            ? null
+                            : item
                     }
-
-                    // This function can be executed for 5 reasons.
-                    // When multi selection is true, for a
-                    // - '.splices' notification (detail.path includes '.splices')
-                    // - '.length' notification (detail.path includes '.length')
-                    // - <iron-list>.clearSelection() (detail.value === [])
-                    // When multi selection is false, for
-                    // - deselect (detail.value === null)
-                    // - select (detail.value is the item)
-
-                    const isLengthChange = detail.path && detail.path.includes('.length')
-                    // const isSpliceChange = detail.path && detail.path.includes('.splices')
-
-                    if (isLengthChange) {
-                        // The '.length' change notification arrives right after
-                        // we '.splices' notification. We skip it because we
-                        // we don't need to re-debounce the set.
-                        return
-                    }
-
-                    // We can't use this.multi because it can be undefined,
-                    // when the iron-list fires the event before we are ready.
-                    // It happens and bad things follows to it.
-                    const isMulti = target.multiSelection
-
-                    // if (isMulti) {
-                    //     const oldItems = this.selectedItems
-                    //     const newItems = target.selectedItems
-                    //
-                    //     // iron-list fires a change event after we propagate
-                    //     // downward the changes.  Due to the selectedItems.slice(),
-                    //     // selectedItems is always a new array and we can't
-                    //     // simply assign it to this.selectedItems because it
-                    //     // would trigger a change and an other iron-list event
-                    //     // resulting in an infinite loop. We must stop it.
-                    //     if (Lodash.isEqual(oldItems, newItems)) {
-                    //         // Nothing actually changed. We can skip it.
-                    //         return
-                    //     }
-                    // }
-
-                    const value = isMulti
-                        // We shallow clone the array because Polymer mutates in place.
-                        ? target.selectedItems.slice()
-                        // target.selectedItem has the old value (not yet updated).
-                        // detail.value has the updated value.
-                        : detail.value
-
-                    const debounceTime = 100
-                    const debounceId = '_selectedItemsChanged'
-                    const debounceFn = () => this.selectedItems = value
-
-                    this.debounce(debounceId, debounceFn, debounceTime)
                 },
 
                 // _preventDeselect(event) {
@@ -627,31 +578,19 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 //     event.stopPropagation()
                 // },
 
-                // _onDeselectTap(event) {
-                //     const menu = this.$.Menu
-                //
-                //
-                //     menu.close()
-                //
-                //     this.selectedItems = null
-                // },
+                _onEmptyItemTap(event) {
+                    const menu = this.$.Menu
+
+                    menu.close()
+
+                    this.selectedItems = null
+                },
 
                 _searchValueChanged(event, detail) {
                     const value = detail.value
                     const debounceId = '_searchValueChanged'
                     const debounceTime = 300
-                    const debounceFn = () => {
-                        // We have to skip the iron-list selection reset when
-                        // items change. It results in a selected-items-changed
-                        // with detail.value === null for single selection
-                        // and detail.value === [] for multi selection.
-                        this._downwardItems = true
-
-                        this.search = value
-
-                        // Safe lock release.
-                        this.async(() => this._downwardItems = false, 300)
-                    }
+                    const debounceFn = () => this.search = value
 
                     this.debounce(debounceId, debounceFn, debounceTime)
                 },
@@ -659,9 +598,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 //// Public APIs. //////////////////////////////////////////////
 
                 reset() {
-                    const list = this.$.List
-
-                    list.clearSelection()
+                    this.selectedItems = null
                 },
 
                 validate() {
@@ -673,12 +610,24 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 //// Internal APIs. ////////////////////////////////////////////
 
-                // _deselectIsEnabled(deselectable, multi) {
-                //     return multi !== true && deselectable === true
-                // },
+                _emptyItemIsEnabled(emptyItem, deselectable, multi) {
+                    return false
+                    // return multi !== true && deselectable === true
+                },
 
-                _itemText(item, path) {
-                    return Lodash.get(item, path)
+                _tabIndex(item, index) {
+                    return 0
+                },
+
+                _selected(selectedItems, item, index, multi) {
+                    if (! selectedItems) {
+                        // Optimization.
+                        return false
+                    }
+
+                    return multi
+                        ? selectedItems.includes(item)
+                        : selectedItems === item
                 },
 
                 _doesMatch(item, query) {
@@ -690,39 +639,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                     return doesMatch
                 },
-
-                // _restoreSelectedItems(selected) {
-                //     if (Lodash.some(arguments, Lodash.isNil) || this.filteredItems.length === 0 || ! this.filter) {
-                //         return
-                //     }
-                //
-                //     const list         = this.$.List
-                //     const dropdownMenu = this.$.Menu
-                //     const menuButton   = dropdownMenu.$$('paper-menu-button')
-                //
-                //     function selectItem(item) {
-                //         const index = Lodash(this.filteredItems).findIndex(item)
-                //
-                //         if (index < 0) {
-                //             return
-                //         }
-                //
-                //         const isMulti = this.$.List.multiSelection
-                //
-                //         if (isMulti) {
-                //             list.selectItem(index)
-                //         }
-                //         else {
-                //             this.configurePaperMenuButton(menuButton, false)
-                //             list.selectItem(index)
-                //             this.configurePaperMenuButton(menuButton, true)
-                //         }
-                //     }
-                //
-                //     const selectedItems = Lodash.flatten([ selected ])
-                //
-                //     selectedItems.forEach(selectItem, this)
-                // },
             })
         })()
         // ]]>

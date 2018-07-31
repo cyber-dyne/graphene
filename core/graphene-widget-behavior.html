@@ -7,6 +7,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 <link rel="import" href="../../polymer/polymer.html"/>
 <link rel="import" href="../lib/lodash.html"/>
 <link rel="import" href="graphene-datastore-behavior.html"/>
+<link rel="import" href="graphene-elementlifecycle-behavior.html"/>
 <link rel="import" href="graphene-fn-api.html"/>
 <link rel="import" href="graphene-localize-behavior.html"/>
 <link rel="import" href="graphene-rest-behavior.html"/>
@@ -57,11 +58,12 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
         /** @polymerBehavior */
         Graphene.WidgetBehavior = [
             Graphene.DatastoreBehavior,
+            Graphene.ElementLifecycleBehavior,
             Graphene.LocalizeBehavior,
             Graphene.RestBehavior,
             Graphene.StoreBehavior,
-            Graphene.WidgetLifecycleBehavior,
             Graphene.WidgetBehaviorImpl,
+            Graphene.WidgetLifecycleBehavior,
         ]
     })()
     // ]]>
