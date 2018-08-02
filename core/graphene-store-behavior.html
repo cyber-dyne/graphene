@@ -30,7 +30,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 statePath: {
                     type: String,
-                    value: '',
                 },
 
                 state: {
@@ -65,6 +64,10 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 isAttached: {
                     type: Boolean,
                 },
+
+                storeOpsQueue: {
+                    type: Array,
+                },
             },
 
             observers: [
@@ -75,6 +78,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 '_storeCollectionObserver(store, "reducers", storeReducers, isAttached)',
                 '_storeCollectionObserver(store, "actions",  storeActions,  isAttached)',
                 '_storeCollectionObserver(store, "getters",  storeGetters,  isAttached)',
+                '_storeOpsQueueConsumer(storeOpsQueue, store, statePath)',
             ],
 
             //// Lifecycle callbacks. //////////////////////////////////////////
@@ -117,10 +121,54 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 }
 
                 const collection = store[collectionName]
-                const action     = (isAttached === true) ? 'add' : 'remove'     // When attached add, otherwise remove.
-                const args       = Array.isArray(items)  ? items : [ items ]    // Array or Array with one object.
+                const action = (isAttached === true)
+                    ? 'add'     // When attached add
+                    : 'remove'  // otherwise remove.
+                const args = Array.isArray(items)
+                    ? items     // Array
+                    : [ items ] // or Array with one object.
 
                 collection[action](...args)
+            },
+
+            _storeOpsQueueConsumer(storeOpsQueue, store, statePath) {
+                if (Lodash.some(arguments, Lodash.isNil)) {
+                    return
+                }
+
+                if (storeOpsQueue.length === 0) {
+                    return
+                }
+
+                const op = this.storeOpsQueue[0]
+                const type = op.type
+
+                switch (type) {
+                    case 'commit':
+                        // TODO
+                        break
+
+                    case 'mutate':
+                        const { id, args } = op
+
+                        store.mutate(id, statePath, ...args)
+
+                        break
+
+                    case 'reduce':
+                        // TODO
+                        break
+
+                    case 'dispatch':
+                        // TODO
+                        break
+                }
+
+
+                // We must use the last available queue ('this.storeOpsQueue',
+                // not 'storeOpsQueue'), to avoid overwriting successive
+                // recursive calls induced by the mutation/reduction.
+                this.storeOpsQueue = this.storeOpsQueue.slice(1)
             },
 
             //// Listeners. ////////////////////////////////////////////////////
@@ -145,31 +193,42 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     throw 'Invalid arguments.'
                 }
 
-                const { mutate } = this.store
-                const { statePath } = this
-
-                const absMutations = {}
                 const mutations = args.length === 1
                     // First and only argument is an array of mutations.
                     ? args[0]
-                    // First argument is the path of the mutation, second
-                    // argument is the value of the mutation.
+                    // First argument is the path of the mutation,
+                    // second argument is the value of the mutation.
                     : { [args[0]]: args[1] }
 
-                if (Lodash.isEmpty(mutations)) {
-                    return
+                if (mutations.length === 0) {
+                    return this
                 }
+
+                const op = {
+                    type: 'mutate',
+                    id: this._mutateWidgetState,
+                    args: [ mutations ],
+                }
+
+                this.storeOpsQueue = (this.storeOpsQueue || []).concat([ op ])
+
+                return this
+            },
+
+            //// Internal APIs. ////////////////////////////////////////////////
+
+            _mutateWidgetState(state, statePath, mutations) {
+                if (! statePath) {
+                    // Mutations paths must not be concatenated to the statePath.
+                    return mutations
+                }
+
+                const absMutations = {}
 
                 for (const path in mutations) {
                     absMutations[`${statePath}.${path}`] = mutations[path]
                 }
 
-                mutate(this._mutateWidgetState, absMutations)
-            },
-
-            //// Internal APIs. ////////////////////////////////////////////////
-
-            _mutateWidgetState(state, absMutations) {
                 return absMutations
             },
         }

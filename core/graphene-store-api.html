@@ -17,16 +17,10 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
         const on = Graphene.fn.invokeOn
 
-        const regex = {
-            square: /\[/g,
-            dotSquare: /^\./,
-        }
-
         /** @polymerBehavior */
-        Graphene.StoreClass = class
-        {
-            constructor(config={})
-            {
+        Graphene.StoreClass = class {
+
+            constructor(config={}) {
                 const {
                     state,
                     container,
@@ -44,10 +38,9 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 this.actions    = ObjectCollection()
                 this.getters    = this._newGettersProxy()
                 this.messages   = {
-                    commit: 'Committing state with',
-                    reduce: 'Reducing state with',
-                    mutate: 'Mutating state with',
-                    action: 'Dispatching action',
+                    reduceDone: 'state reduced by:',
+                    mutateDone: 'state mutated by:',
+                    action: 'Dispatching action:',
                 }
 
                 const apis = [ 'commit', 'reduce', 'mutate', 'dispatch', 'require', 'save', 'back', 'forward' ]
@@ -64,26 +57,22 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 this.state      = state
             }
 
-            commit(id, ...args)
-            {
+            commit(id, ...args) {
                 // id is a reducer/mutator identifier string/symbol.
                 return this._executeTask('commit', id, ...args)
             }
 
-            reduce(fn, ...args)
-            {
+            reduce(fn, ...args) {
                 // fn is a reducer function.
                 return this._executeTask('reduce', fn, ...args)
             }
 
-            mutate(fn, ...args)
-            {
+            mutate(fn, ...args) {
                 // fn is a mutator function.
                 return this._executeTask('mutate', fn, ...args)
             }
 
-            dispatch(fnOrId, ...args)
-            {
+            dispatch(fnOrId, ...args) {
                 // fnOrId is an action function or an action identifier string/symbol.
                 const promise = new Promise((resolve, reject) => {
                     this._executeTask('action', [ resolve, reject ], fnOrId, ...args)
@@ -92,8 +81,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 return promise
             }
 
-            require(...args)
-            {
+            require(...args) {
                 const container = this.container
 
                 if (container === undefined) {
@@ -106,18 +94,15 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 return val
             }
 
-            get get()
-            {
+            get get() {
                 return this.getters.items
             }
 
-            get state()
-            {
+            get state() {
                 return this._state
             }
 
-            set state(newState)
-            {
+            set state(newState) {
                 if (this.state === newState) {
                     // We have nothing to do.
                     return
@@ -128,15 +113,13 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 this._setState(newState)
             }
 
-            save()
-            {
+            save() {
                 this._pushWithLimit(this.history, this.state)
 
                 return this
             }
 
-            back()
-            {
+            back() {
                 // 1) We pop last-pushed state from the history.
                 const prevState = this.history.pop()
 
@@ -153,8 +136,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 return this.state
             }
 
-            forward()
-            {
+            forward() {
                 // 1) We pop last-pushed state from the future.
                 const futureState = this.future.pop()
 
@@ -173,8 +155,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 return this.state
             }
 
-            _setState(newState, event='state')
-            {
+            _setState(newState, event='state') {
                 this._state = newState
 
                 // // We reset this.future, meaning that if we do .back() and then
@@ -187,8 +168,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 this._notifyEvent(event, newState)
             }
 
-            _pushWithLimit(queue, item)
-            {
+            _pushWithLimit(queue, item) {
                 queue.push(item)
 
                 const shiftedItem = this._gcQueue(queue, this.maxHistory)
@@ -196,8 +176,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 return shiftedItem
             }
 
-            _gcQueue(queue, maxSize)
-            {
+            _gcQueue(queue, maxSize) {
                 const size = queue.length
 
                 if (size > maxSize) {
@@ -208,10 +187,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 // undefined otherwise.
             }
 
-            _executeTask(type, ...args)
-            {
-                Graphene.Logger.debug('Graphene.Store:', this.messages[type], args)
-
+            _executeTask(type, ...args) {
                 const handler = `_${type}Handler`
 
                 this[handler](...args)
@@ -221,8 +197,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 return this
             }
 
-            _commitHandler(id, ...args)
-            {
+            _commitHandler(id, ...args) {
                 const types = [
                     { collection: this.reducers, type: 'reduce' },
                     { collection: this.mutators, type: 'mutate' },
@@ -248,90 +223,54 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 return this
             }
 
-            _reduceHandler(fn, ...args)
-            {
+            _reduceHandler(fn, ...args) {
                 if (! Lodash.isFunction(fn)) {
                     throw `Graphene.Store: reducer must be a function.`
                 }
 
-                const prevState = this.state
-                const nextState = fn(prevState, ...args)
+                const nextState = fn(this.state, ...args)
+
+                if (this.state !== nextState) {
+                    Graphene.Logger.debug('Graphene.Store:', this.messages.reduceDone, fn.name, args, [ fn ])
+                }
 
                 this.state = nextState
 
                 return this
             }
 
-            _mutateHandler(fn, ...args)
-            {
+            _mutateHandler(fn, ...args) {
                 if (! Lodash.isFunction(fn)) {
                     throw `Graphene.Store: mutator must be a function.`
                 }
 
-                let newState  = this.state
-                const changes = fn(newState, ...args)
+                let nextState  = this.state
+                const changes = fn(nextState, ...args)
 
                 for (const changePath in changes) {
                     const changeValue = changes[changePath]
-                    const dotPath = changePath
-                        .replace(regex.square, '.[')        // a[0] to a.[0]
-                        .replace(regex.dotSquare, '')       // .[0] to [0]
-                    const oldValue = Lodash.get(newState, changePath)
+
+                    const oldValue = Lodash.get(nextState, changePath)
                     const newValue = typeof changeValue === 'function'
-                        ? changeValue(newState, this.get)
+                        ? changeValue(nextState, this.get)
                         : changeValue
 
-                    if (newValue === oldValue) {
-                        // We mutate only if new value and old value differ.
-                        continue
+                    if (newValue !== oldValue) {
+                        // We mutate only if new value and old value are different.
+                        nextState = Graphene.fn.cloneOnWrite(nextState, changePath, newValue)
                     }
-
-                    newState = this._mutateShallow(newState, dotPath.split('.'), newValue)
                 }
 
-                this.state = newState
+                if (this.state !== nextState) {
+                    Graphene.Logger.debug('Graphene.Store:', this.messages.mutateDone, fn.name, args, [ fn ])
+                }
+
+                this.state = nextState
 
                 return this
             }
 
-            _mutateShallow(data, path, value)
-            {
-                // Of       a.[0].c     [0].b.c     a
-                // head     a           [0]         a
-                // tail     [0].c       b.c
-                const head = path[0]
-
-                if (head === void null) {
-                    // We reached the bottom of the change path. Time to return.
-                    return value
-                }
-
-                const tail = path.slice(1)
-                // We get one level down inside the data.
-                const headData = Lodash.get(data, head)
-                // We perform a shallow mutation of the head data.
-                const headDataValue = this._mutateShallow(headData, tail, value)
-
-                let newData
-                if (data === undefined) {
-                    // We need to create an empty data structure compatible
-                    // with the change path.
-                    const dataShouldBeArray = head[0] === '['
-
-                    newData = dataShouldBeArray ? [] : {}
-                } else {
-                    newData = Lodash.clone(data)  // Shallow clone of Array/Object.
-                }
-                // We use Lodash to set, on the shallow clone of data, the head data:
-                // - '[n]' for Arrays
-                // - 'prop' for Objects
-                Lodash.set(newData, head, headDataValue)
-
-                return newData
-            }
-
-            _actionHandler(promiseCallbacks, fnOrId, ...args)
-            {
+            _actionHandler(promiseCallbacks, fnOrId, ...args) {
                 const fn = Lodash.isFunction(fnOrId) ? fnOrId : this.actions.items[fnOrId]
 
                 if (! Lodash.isFunction(fn)) {
@@ -339,6 +278,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 }
 
                 const [ resolvePromise, rejectPromise ] = promiseCallbacks
+
+                Graphene.Logger.debug('Graphene.Store:', this.messages.action, fn.name, args, [ fn ])
 
                 // An action needs the store as first argument to be able to
                 // dispatch other actions or mutations/reductions.
@@ -352,8 +293,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 return this
             }
 
-            _newPluginsProxy()
-            {
+            _newPluginsProxy() {
                 const collection = ArrayCollection()
 
                 return {
@@ -409,8 +349,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 }
             }
 
-            _newGettersProxy()
-            {
+            _newGettersProxy() {
                 const collection = ObjectCollection()
 
                 return {
@@ -449,8 +388,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 }
             }
 
-            _processPluginImports(plugin, action)
-            {
+            _processPluginImports(plugin, action) {
                 const imports = [ 'mutators', 'reducers', 'actions', 'getters', 'plugins' ]
 
                 imports.forEach(type => {
@@ -475,8 +413,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 return this
             }
 
-            get listeners()
-            {
+            get listeners() {
                 const plugins   = this.plugins.items
                 const observers = this.observers.items
                 const targets   = plugins.concat(observers)
@@ -484,8 +421,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 return targets
             }
 
-            _notifyEvent(...args)
-            {
+            _notifyEvent(...args) {
                 const listeners = this.listeners
                 const notify    = [ Graphene.Store.notify, 'notify' ]
 
@@ -500,8 +436,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 return this
             }
 
-            _notifyStateChange(newState)
-            {
+            _notifyStateChange(newState) {
                 const listeners      = this.listeners
                 const stateDidChange = [ Graphene.Store.stateDidChange, 'stateDidChange' ]
 
@@ -536,7 +471,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
         Graphene.Store.getters        = Symbol('Graphene.Store.getters')
         Graphene.Store.plugins        = Symbol('Graphene.Store.plugins')
 
-        const ArrayCollection = function (initial) {
+        const ArrayCollection = function ArrayCollection(initial) {
             if (! (this instanceof ArrayCollection)) {
                 return new ArrayCollection(initial)
             }
@@ -544,13 +479,13 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             this.items = initial || []
         }
 
-        ArrayCollection.prototype.add = function (...items) {
+        ArrayCollection.prototype.add = function add(...items) {
             items.forEach(i => this.items.push(i))
 
             return this
         }
 
-        ArrayCollection.prototype.remove = function (...items) {
+        ArrayCollection.prototype.remove = function remove(...items) {
             items.forEach(i => {
                 const index = this.items.indexOf(i)
 
@@ -564,7 +499,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             return this
         }
 
-        const ObjectCollection = function (initial) {
+        const ObjectCollection = function ObjectCollection(initial) {
             if (! (this instanceof ObjectCollection)) {
                 return new ObjectCollection(initial)
             }
@@ -572,13 +507,13 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             this.items = initial || {}
         }
 
-        ObjectCollection.prototype.add = function (...objs) {
+        ObjectCollection.prototype.add = function add(...objs) {
             Object.assign(this.items, ...objs)
 
             return this
         }
 
-        ObjectCollection.prototype.remove = function (...objs) {
+        ObjectCollection.prototype.remove = function remove(...objs) {
             objs.forEach(o => {
                 const props = Graphene.fn.getOwnPropertyNamesAndSymbols(o)
 

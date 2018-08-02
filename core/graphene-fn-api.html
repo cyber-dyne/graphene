@@ -12,7 +12,55 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
     ;(function (undefined) {
         'use strict'
 
+        const regex = {
+            square: /\[/g,
+            dotSquare: /^\./,
+        }
+
         Graphene.fn = {
+            cloneOnWrite(data, path, value) {
+                if (path === '') {
+                    // We reached the bottom of the change path. Time to return.
+                    return value
+                }
+
+                // From Lodash path to a splittable representation.
+                const dotPath = path
+                    .replace(regex.square, '.[')        // a[0] to a.[0]
+                    .replace(regex.dotSquare, '')       // .[0] to [0]
+                const pathParts = dotPath.split('.')
+                const head = pathParts[0]
+
+                // Of       a.[0].c     [0].b.c     a
+                // head     a           [0]         a
+                // tail     [0].c       b.c
+
+                const tail = pathParts.slice(1)
+                // We get one level down inside the data.
+                const headData = Lodash.get(data, head)
+                // We perform a shallow mutation of the head data.
+                const headDataValue = Graphene.fn.cloneOnWrite(headData, tail.join('.'), value)
+
+                let newData
+
+                if (data === undefined) {
+                    // We need to create an empty data structure compatible
+                    // with the change path.
+                    const dataShouldBeArray = head[0] === '['
+
+                    newData = dataShouldBeArray ? [] : {}
+                }
+                else {
+                    newData = Lodash.clone(data)  // Shallow clone of Array/Object.
+                }
+                // We use Lodash to set, on the shallow clone of data, the head data:
+                // - '[n]' for Arrays
+                // - 'prop' for Objects
+                Lodash.set(newData, head, headDataValue)
+
+                return newData
+            },
+
             invokeOn(obj, thisBind) {
                 // This function accepts one object or an array of objects.
                 const objs = Lodash.flatten([ obj ])

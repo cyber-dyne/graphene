@@ -426,6 +426,10 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         return
                     }
 
+                    if (autoReset !== true) {
+                        return
+                    }
+
                     if (autoSelect && items.length === 1) {
                         // We must not conflitct with the auto select.
                         return
