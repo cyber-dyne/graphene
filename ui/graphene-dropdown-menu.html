@@ -154,7 +154,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 | but requires an imperative call of the method .selectItem().
                 -->
                 <iron-list id="List"
-                           items="[[ filteredItems ]]">
+                           items="[[ filteredItems ]]"
+                           on-selected-items-changed="_stopEvent">
                     <template>
                         <div tabindex$="[[ _tabIndex(item, index) ]]"
                              selected$="[[ _selected(selectedItems, item, index, multi) ]]"

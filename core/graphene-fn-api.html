@@ -14,6 +14,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
         const regex = {
             square: /\[/g,
+            dotdot: /\.\./g,
             dotSquare: /^\./,
         }
 
@@ -27,6 +28,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 // From Lodash path to a splittable representation.
                 const dotPath = path
                     .replace(regex.square, '.[')        // a[0] to a.[0]
+                    .replace(regex.dotdot, '.')         // a.[0] to a..[0] to a.[0]
                     .replace(regex.dotSquare, '')       // .[0] to [0]
                 const pathParts = dotPath.split('.')
                 const head = pathParts[0]
