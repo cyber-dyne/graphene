@@ -25,6 +25,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
             paper-dropdown-menu {
                 width: 100%;
+
                 --paper-input-container-underline: {
                     border-bottom: 1px solid var(--paper-grey-200);
                 };
@@ -40,14 +41,14 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             }
 
             #Content {
-                background-color: var(--graphene-dropdown-menu-background-color);
+                background-color: var(--graphene-dropdown-menu-background-color, var(--graphene-primary-background, white));
             }
 
             #Filter {
                 /* <paper-input> */
-                width: var(--graphene-dropdown-menu-width, 400px);
-                padding: var(--graphene-gutter-xs) var(--graphene-gutter-s);
-                background-color: var(--graphene-dropdown-menu-background-color);
+                width: 100%;
+                padding: 0 var(--graphene-gutter-s);
+                background-color: var(--graphene-dropdown-menu-background-color, var(--graphene-primary-background, white));
 
                 --paper-input-container-input: {
                     padding: 5px 0;
@@ -65,8 +66,41 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 };
             }
 
+            #EmptyItem {
+                cursor: pointer;
+                font-size: 0.9em;
+                color:            var(--graphene-dropdown-menu-color);
+                background-color: var(--graphene-dropdown-menu-background-color, var(--graphene-primary-background, white));
+            }
+
+            #List {
+                /* <iron-list> */
+                width: var(--graphene-dropdown-menu-width, 400px);
+                /*
+                * We can't use
+                * height: 100%
+                * because it would force the iron-list to render all items.
+                */
+
+                cursor: pointer;
+
+                transition: all .2s;
+
+                --iron-list-items-container: {
+                    font-size: 0.9em;
+
+                    color: var(--graphene-primary-text-color, var(--paper-grey-700));
+                    background-color: var(--graphene-dropdown-menu-background-color, var(--graphene-primary-background, white));
+
+                    @apply --graphene-dropdown-menu;
+                };
+            }
+
             #EmptyItem,
             #List > * {
+                user-select: none;
+                -webkit-user-select: none;
+
                 padding: 0 var(--graphene-gutter-s);
 
                 line-height:    2.2em;
@@ -76,50 +110,34 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 vertical-align: middle;
                 overflow:       hidden;
                 text-overflow:  ellipsis;
+
+                @apply --graphene-dropdown-menu-item;
             }
 
             #List > * {
                 display: inline-block;  /* For vertical-align. */
             }
 
-            #EmptyItem {
-                cursor: pointer;
-                font-size: 0.9em;
-                color:            var(--graphene-dropdown-menu-color);
-                background-color: var(--graphene-dropdown-menu-background-color);
-
-                user-select: none;
-                -webkit-user-select: none;
-            }
-
-            #List {
-                /* <iron-list> */
-                width:  var(--graphene-dropdown-menu-width,  400px);
-                height: var(--graphene-dropdown-menu-height, 400px);
-
-                cursor: pointer;
-
-                --iron-list-items-container: {
-                    font-size: 0.9em;
-
-                    color:            var(--graphene-dropdown-menu-color);
-                    background-color: var(--graphene-dropdown-menu-background-color);
-                };
-            }
-
             #EmptyItem:hover,
             #List > *:hover {
-                background-color: var(--graphene-dropdown-menu-focus-color);
+                background-color: var(--paper-grey-200);
+
+                @apply --graphene-dropdown-menu-hover;
             }
 
             #List > *[selected] {
-                color:            var(--graphene-dropdown-menu-selected-item-color);
-                background-color: var(--graphene-dropdown-menu-selected-item-background-color);
+                font-weight: bold;
+                color: var(--paper-grey-800);
+                background-color: var(--graphene-primary-background, white);
+
+                @apply --graphene-dropdown-menu-selected;
             }
 
             #List > *:focus {
                 outline: none;
-                background-color: var(--graphene-dropdown-menu-focus-color);
+                background-color: var(--paper-grey-300);
+
+                @apply --graphene-dropdown-menu-focus;
             }
         </style>
 
@@ -127,17 +145,18 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                              label="[[ label ]]"
                              vertical-align="[[ valign ]]"
                              horizontal-align="[[ halign ]]"
+                             allow-outside-scroll
                              disabled="[[ disabled ]]"
                              required="[[ required ]]"
                              invalid="{{ invalid }}"
-                             on-selected-item-changed="_stopEvent">
-
+                             on-selected-item-changed="_stopEvent"
+                             on-opened-changed="_onMenuOpenedChanged">
             <div id="Content" class="dropdown-content">
                 <paper-input id="Filter"
                              type="search"
                              no-label-float
                              hidden$="[[ ! filter ]]"
-                             on-value-changed="_searchValueChanged">
+                             on-value-changed="_onSearchValueChanged">
                     <iron-icon icon="icons:search" prefix></iron-icon>
                 </paper-input>
 
@@ -145,7 +164,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 <div id="EmptyItem"
                      on-tap="_onEmptyItemTap"
-                     hidden$="[[ ! _emptyItemIsEnabled(emptyItem, deselectable, multi) ]]">
+                     hidden$="[[ ! emptyItem ]]">
                     &nbsp;
                 </div>
 
@@ -167,7 +186,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 <slot id="FooterSlot" name="footer"></slot>
             </div>
-
         </paper-dropdown-menu>
     </template>
 
@@ -309,12 +327,14 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         value: '',
                     },
 
-                    maxHeight: {
-                        type: Number,
-                    },
-
                     itemHeight: {
                         type: Number,
+                        value: 31,
+                    },
+
+                    maxHeight: {
+                        type: Number,
+                        value: 400,
                     },
 
                     valign: {
@@ -329,15 +349,11 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 },
 
                 observers: [
-                    '_setItemsSize(items, itemHeight, maxHeight)',
+                    '_setItemsHeight(items, itemHeight, maxHeight)',
                     '_selectAuto(items, multi, autoSelect)',
                     '_resetAuto(items, autoReset, autoSelect, multi)',
                     '_setTitle(selectedItems, titleFormatter)',
                 ],
-
-                listeners: {
-                    'Menu.opened-changed': '_menuOpenedChangedListener',
-                },
 
                 //// Lifecycle callbacks. //////////////////////////////////////
 
@@ -367,22 +383,36 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 //// Observers. ////////////////////////////////////////////////
 
-                _setItemsSize(items, itemHeight, maxHeight) {
-                    if (Lodash.some(arguments, Lodash.isNil)) {
+                _setItemsHeight(items, itemHeight, maxHeight) {
+                    if (! items) {
                         return
                     }
 
-                    if (itemHeight === 0) {
+                    const list = this.$.List
+
+                    const heights = []
+
+                    if (itemHeight) {
+                        const itemsSize = items.length
+                        const height = itemHeight * itemsSize
+
+                        heights.push(height)
+                    }
+
+                    if (maxHeight) {
+                        heights.push(maxHeight)
+                    }
+
+                    if (heights.length === 0) {
+                        // We have nothing to do.
                         return
                     }
 
-                    const itemsSize   = items.length
-                    const itemsHeight = itemHeight * itemsSize
-                    const height      = Math.min(itemsHeight, maxHeight)
-                    // const width       = Math.min(itemWidth,   maxWidth)
-                    const list        = this.$.List
+                    const height = Math.min(...heights)
 
                     list.style.height = height + 'px'
+
+                    this.updateSize()
                 },
 
                 _selectAuto(items, multi, autoSelect) {
@@ -493,17 +523,23 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 //// Listeners. ////////////////////////////////////////////////
 
-                _menuOpenedChangedListener(event, detail) {
-                    const node            = Polymer.dom(event).rootTarget    // Who fired the event.
-                    const isPaperDropdown = node.localName === 'paper-dropdown-menu'
+                _stopEvent(event) {
+                    // Internal events must not escaped from the component.
+                    event.stopPropagation()
+                },
 
-                    if (! isPaperDropdown) {
+                _onMenuOpenedChanged(event, detail) {
+                    const target = Polymer.dom(event).localTarget   // Our listener.
+                    const source = Polymer.dom(event).rootTarget    // Who actually fired the event.
+
+                    if (target !== source) {
+                        // An homonym event has been fired by the internal
+                        // paper-menu-button or iron-dropdown.
                         return
                     }
 
-                    const dropdownMenu = this.$.Menu
-                    const menuButton   = dropdownMenu.$$('paper-menu-button')
-                    const dropdown     = menuButton.$$('iron-dropdown')
+                    const ironList     = this.$.List
+                    const itemsList    = ironList.$$('#items')
 
                     // iron-list are rendered only when visible, but the
                     // iron-dropdown imposes display:none on the content (the
@@ -513,9 +549,24 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     // (iron-list) size which is zero.  We give a bit of time
                     // to the iron-dropdown to display the iron-list and to the
                     // iron-list to generate its content and, after that, we
-                    // inform the paper-dropdown-menu to recompute its content
-                    // size.
-                    this.async(() => dropdown.notifyResize, 400)
+                    // inform the iron-dropdown to recompute its content size.
+                    this.async(() => {
+                        ironList.fire('iron-resize')
+
+                        const children = ironList.getEffectiveChildren()
+                        const sample = children.find(it => it.nodeName.toLowerCase() !== 'template')
+
+                        if (! sample) {
+                            return
+                        }
+
+                        const height = sample.clientHeight
+
+                        if (height > 0) {
+                            this.itemHeight = height
+                        }
+
+                    }, 600)
 
                     const isOpenChange = detail.value
                     const hasFilter    = this.filter !== undefined
@@ -529,11 +580,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     // We want to focus the filter input, with a delay due to the
                     // dropdown content opening animation
                     this.async(() => input.focus(), 400)
-                },
-
-                _stopEvent(event) {
-                    // Internal events must not escaped from the component.
-                    event.stopPropagation()
                 },
 
                 _onItemTap(event) {
@@ -561,12 +607,18 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         // We restore the normal behavior, in case the selection
                         // mode changes.
                         this.configurePaperMenuButton(menuButton, true)
+
+                        return
                     }
-                    else {
-                        this.selectedItems = alreadySelected
-                            ? null
-                            : item
+
+                    if (alreadySelected && ! this.deselectable) {
+                        // We can't deselect it.
+                        return
                     }
+
+                    this.selectedItems = alreadySelected
+                        ? null
+                        : item
                 },
 
                 // _preventDeselect(event) {
@@ -591,9 +643,9 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     this.selectedItems = null
                 },
 
-                _searchValueChanged(event, detail) {
+                _onSearchValueChanged(event, detail) {
                     const value = detail.value
-                    const debounceId = '_searchValueChanged'
+                    const debounceId = '_onSearchValueChanged'
                     const debounceTime = 300
                     const debounceFn = () => this.search = value
 
@@ -613,12 +665,15 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     return valid
                 },
 
-                //// Internal APIs. ////////////////////////////////////////////
+                updateSize() {
+                    const dropdownMenu = this.$.Menu
+                    const menuButton   = dropdownMenu.$$('paper-menu-button')
+                    const dropdown     = menuButton.$$('iron-dropdown')
 
-                _emptyItemIsEnabled(emptyItem, deselectable, multi) {
-                    return false
-                    // return multi !== true && deselectable === true
+                    dropdown.notifyResize()
                 },
+
+                //// Internal APIs. ////////////////////////////////////////////
 
                 _tabIndex(item, index) {
                     return 0
