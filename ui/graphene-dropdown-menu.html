@@ -41,12 +41,18 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             }
 
             #Content {
+                width: var(--graphene-dropdown-menu-width, 400px);
                 background-color: var(--graphene-dropdown-menu-background-color, var(--graphene-primary-background, white));
+            }
+
+            #Filter,
+            #EmptyItem,
+            #List {
+                width: 100%;
             }
 
             #Filter {
                 /* <paper-input> */
-                width: 100%;
                 padding: 0 var(--graphene-gutter-s);
                 background-color: var(--graphene-dropdown-menu-background-color, var(--graphene-primary-background, white));
 
@@ -75,7 +81,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
             #List {
                 /* <iron-list> */
-                width: var(--graphene-dropdown-menu-width, 400px);
                 /*
                 * We can't use
                 * height: 100%
