@@ -8,6 +8,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 <link rel="import" href="graphene-api.html"/>
 <link rel="import" href="graphene-browser-api.html"/>
 <link rel="import" href="graphene-element-factory.html"/>
+<link rel="import" href="graphene-logger-api.html"/>
 
 <dom-module id="graphene-boot">
     <template>
@@ -78,7 +79,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 //// Observers. ////////////////////////////////////////////////
 
                 _elementObserver(element) {
-                    console.info('Booting', element, Graphene)
+                    Graphene.Logger.debug(`${this.localName}: Booting`, element, Graphene)
 
                     // this._import(element)
 
