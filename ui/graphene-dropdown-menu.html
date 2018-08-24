@@ -146,30 +146,36 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             }
         </style>
 
-        <paper-dropdown-menu id="Menu"
-                             label="[[ label ]]"
-                             vertical-align="[[ valign ]]"
-                             horizontal-align="[[ halign ]]"
-                             allow-outside-scroll
-                             disabled="[[ disabled ]]"
-                             required="[[ required ]]"
-                             invalid="{{ invalid }}"
-                             on-selected-item-changed="_stopEvent"
-                             on-opened-changed="_onMenuOpenedChanged">
+        <paper-dropdown-menu
+            id="Menu"
+            label="[[ label ]]"
+            vertical-align="[[ valign ]]"
+            horizontal-align="[[ halign ]]"
+            allow-outside-scroll
+            disabled="[[ disabled ]]"
+            required="[[ required ]]"
+            invalid="{{ invalid }}"
+            on-selected-item-changed="_stopEvent"
+            on-opened-changed="_onMenuOpenedChanged"
+        >
             <div id="Content" class="dropdown-content">
-                <paper-input id="Filter"
-                             type="search"
-                             no-label-float
-                             hidden$="[[ ! filter ]]"
-                             on-value-changed="_onSearchValueChanged">
+                <paper-input
+                    id="Filter"
+                    type="search"
+                    no-label-float
+                    hidden$="[[ ! filter ]]"
+                    on-value-changed="_onSearchValueChanged"
+                >
                     <iron-icon icon="icons:search" prefix></iron-icon>
                 </paper-input>
 
                 <slot id="HeaderSlot" name="header"></slot>
 
-                <div id="EmptyItem"
-                     on-tap="_onEmptyItemTap"
-                     hidden$="[[ ! emptyItem ]]">
+                <div
+                    id="EmptyItem"
+                    hidden$="[[ ! emptyItem ]]"
+                    on-tap="_onEmptyItemTap"
+                >
                     &nbsp;
                 </div>
 
@@ -177,13 +183,17 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 | iron-list doesn't support selecting an item through the binding
                 | but requires an imperative call of the method .selectItem().
                 -->
-                <iron-list id="List"
-                           items="[[ filteredItems ]]"
-                           on-selected-items-changed="_stopEvent">
+                <iron-list
+                    id="List"
+                    items="[[ filteredItems ]]"
+                    on-selected-items-changed="_stopEvent"
+                >
                     <template>
-                        <div tabindex$="[[ _tabIndex(item, index) ]]"
-                             selected$="[[ _selected(selectedItems, item, index, multi) ]]"
-                             on-tap="_onItemTap">
+                        <div
+                            tabindex$="[[ _tabIndex(item, index) ]]"
+                            selected$="[[ _selected(selectedItems, item, index, multi) ]]"
+                            on-tap="_onItemTap"
+                        >
                             [[ itemTitleFormatter(item, index, itemTitlePath) ]]
                         </div>
                     </template>
@@ -358,6 +368,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     '_selectAuto(items, multi, autoSelect)',
                     '_resetAuto(items, autoReset, autoSelect, multi)',
                     '_setTitle(selectedItems, titleFormatter)',
+                    '_validate(required, selectedItems)',
                 ],
 
                 //// Lifecycle callbacks. //////////////////////////////////////
@@ -524,6 +535,14 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     const itemNode = this.create('span', { label: title })
 
                     this.fire('iron-select', { item: itemNode }, { node: target })
+                },
+
+                _validate(required, selectedItems) {
+                    if (! required) {
+                        return
+                    }
+
+                    this.validate()
                 },
 
                 //// Listeners. ////////////////////////////////////////////////
