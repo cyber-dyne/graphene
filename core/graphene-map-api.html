@@ -11,31 +11,58 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
     ;(function (undefined) {
         'use strict'
 
-        Graphene.Map = function () {
+        Graphene.Map = function Map() {
             const keys = []
-            const vals = []
+            const values = []
 
             return {
-                put(key, val) {
+                put(key, value) {
                     const index = keys.indexOf(key)
 
-                    if (index == -1) {
+                    if (index === -1) {
                         keys.push(key)
-                        vals.push(val)
+                        values.push(value)
 
                         return this
                     }
 
-                    vals[index] = val
+                    values[index] = value
 
                     return this
                 },
 
+                del(key) {
+                    const index = keys.indexOf(key)
+
+                    if (index === -1) {
+                        return
+                    }
+
+                    const value = values[index]
+
+                    keys.splice(index, 1)
+                    values.splice(index, 1)
+
+                    return value
+                },
+
                 get(key) {
                     const index = keys.indexOf(key)
-                    const val   = vals[index]
+                    const value = values[index]
 
-                    return val
+                    return value
+                },
+
+                keys() {
+                    return keys
+                },
+
+                values() {
+                    return values
+                },
+
+                entries() {
+                    return keys.map((it, index) => [ it, values[index] ])
                 },
             }
         }

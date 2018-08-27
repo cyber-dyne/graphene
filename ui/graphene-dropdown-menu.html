@@ -493,21 +493,28 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     }
 
                     if (multi) {
-                        const availableItems = this.selectedItems.filter(it =>
+                        const selectedItemsInItems = this.selectedItems.filter(it =>
                             items.includes(it)
                         )
 
-                        if (availableItems.length === this.selectedItems.length) {
+                        if (selectedItemsInItems.length === this.selectedItems.length) {
                             // All selected items are available in the items list.
                             // We have nothing to reset.
                             return
                         }
 
-                        if (availableItems.length > 0) {
+                        if (selectedItemsInItems.length > 0) {
                             // Some selected items are available in the items list.
                             // We fix the selected items.
-                            this.selectedItems = availableItems
+                            this.selectedItems = selectedItemsInItems
 
+                            return
+                        }
+                    }
+                    else {
+                        const isSelectedItemInItems = items.includes(this.selectedItems)
+
+                        if (isSelectedItemInItems) {
                             return
                         }
                     }

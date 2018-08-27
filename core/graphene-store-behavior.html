@@ -136,34 +136,22 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     return
                 }
 
+                if (this._flushingStoreOpsQueue) {
+                    return
+                }
+
                 if (storeOpsQueue.length === 0) {
                     return
                 }
 
-                const op = this.storeOpsQueue[0]
-                const type = op.type
+                this._flushingStoreOpsQueue = true
 
-                switch (type) {
-                    case 'commit':
-                        // TODO
-                        break
+                const task = storeOpsQueue[0]
+                const { type, id, args } = task
 
-                    case 'mutate':
-                        const { id, args } = op
+                store[type](id, ...args, statePath)
 
-                        store.mutate(id, statePath, ...args)
-
-                        break
-
-                    case 'reduce':
-                        // TODO
-                        break
-
-                    case 'dispatch':
-                        // TODO
-                        break
-                }
-
+                this._flushingStoreOpsQueue = false
 
                 // We must use the last available queue ('this.storeOpsQueue',
                 // not 'storeOpsQueue'), to avoid overwriting successive
@@ -217,7 +205,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
             //// Internal APIs. ////////////////////////////////////////////////
 
-            _mutateWidgetState(state, statePath, mutations) {
+            _mutateWidgetState(state, mutations, statePath) {
                 if (! statePath) {
                     // Mutations paths must not be concatenated to the statePath.
                     return mutations

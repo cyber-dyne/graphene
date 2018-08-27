@@ -15,8 +15,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
     ;(function (undefined) {
         'use strict'
 
-        const on = Graphene.fn.invokeOn
-
         /** @polymerBehavior */
         Graphene.StoreClass = class {
 
@@ -28,33 +26,46 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     autoSave,
                 } = config
 
+                const apis = [
+                    'commit',
+                    'reduce',
+                    'mutate',
+                    'dispatch',
+                    'require',
+                    'save',
+                    'back',
+                    'forward',
+                ]
+
                 // 1) We init the internal data structures.
-                this.history    = []
-                this.future     = []
-                this.plugins    = this._newPluginsProxy()
-                this.observers  = ArrayCollection()
-                this.mutators   = ObjectCollection()
-                this.reducers   = ObjectCollection()
-                this.actions    = ObjectCollection()
-                this.getters    = this._newGettersProxy()
-                this.messages   = {
+                this.history = []
+                this.future = []
+                this.listeners = ListenersProxy(this)
+                this.plugins = PluginsProxy(this)
+                this.observers = ObserversProxy(this)
+                this.mutators = ObjectSet()
+                this.reducers = ObjectSet()
+                this.actions = ObjectSet()
+                this.getters = GettersProxy(this)
+                this.messages = {
                     reduceDone: 'state reduced by:',
                     mutateDone: 'state mutated by:',
                     action: 'Dispatching action:',
                 }
 
-                const apis = [ 'commit', 'reduce', 'mutate', 'dispatch', 'require', 'save', 'back', 'forward' ]
                 // The public APIs are bound to this because they can be used in
                 // destructured assignments or as closures.
-                apis.forEach(name => this[name] = this[name].bind(this))
+                for (const name of apis) {
+                    this[name] = this[name].bind(this)
+                }
 
                 // 2) After the init phase, we import the user provided configuration.
-                this.container  = container
+                this.container = container
                 this.maxHistory = maxHistory
-                this.autoSave   = autoSave
+                this.autoSave = autoSave
 
                 // 3) At the end, when everything is ready, we set the initial state.
-                this.state      = state
+                this.state = state
             }
 
             commit(id, ...args) {
@@ -95,7 +106,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             }
 
             get get() {
-                return this.getters.items
+                return this.getters.items()
             }
 
             get state() {
@@ -108,7 +119,9 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     return
                 }
 
-                this.autoSave && this.save()
+                if (this.autoSave) {
+                    this.save()
+                }
 
                 this._setState(newState)
             }
@@ -205,7 +218,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 const found = types.some(spec => {
                     const { collection, type } = spec
-                    const fn = collection.items[id]
+                    const items = collection.items()
+                    const fn = items[id]
 
                     if (fn) {
                         const handler = `_${type}Handler`
@@ -224,7 +238,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             }
 
             _reduceHandler(fn, ...args) {
-                if (! Lodash.isFunction(fn)) {
+                if (typeof fn !== 'function') {
                     throw `Graphene.Store: reducer must be a function.`
                 }
 
@@ -240,7 +254,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             }
 
             _mutateHandler(fn, ...args) {
-                if (! Lodash.isFunction(fn)) {
+                if (typeof fn !== 'function') {
                     throw `Graphene.Store: mutator must be a function.`
                 }
 
@@ -271,9 +285,12 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             }
 
             _actionHandler(promiseCallbacks, fnOrId, ...args) {
-                const fn = Lodash.isFunction(fnOrId) ? fnOrId : this.actions.items[fnOrId]
+                const items = this.actions.items()
+                const fn = typeof fnOrId === 'function'
+                    ? items[fnOrId]
+                    : fnOrId
 
-                if (! Lodash.isFunction(fn)) {
+                if (typeof fn !== 'function') {
                     throw `Graphene.Store: action '${String(fnOrId)}' not found.`
                 }
 
@@ -293,234 +310,355 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 return this
             }
 
-            _newPluginsProxy() {
-                const collection = ArrayCollection()
-
-                return {
-                    add: (...plugins) => {
-                        plugins.forEach(plugin => {
-                            const index = collection.items.indexOf(plugin)
-
-                            if (index > -1) {
-                                // Plugin already registered.
-                                return
-                            }
-
-                            collection.add(plugin)
-
-                            this._processPluginImports(plugin, 'add')
-
-                            const iface = [ Graphene.Store.start, 'start' ]
-
-                            // We pass an event-like argument to stay aligned
-                            // with the notification API.
-                            on(plugin).invoke(iface, this, 'plugin-loaded')
-                        })
-
-                        return this
-                    },
-
-                    remove: (...plugins) => {
-                        plugins.forEach(plugin => {
-                            const index = collection.items.indexOf(plugin)
-
-                            if (index === -1) {
-                                // Plugin already unregistered.
-                                return
-                            }
-
-                            this._processPluginImports(plugin, 'remove')
-
-                            collection.remove(plugin)
-
-                            const iface = [ Graphene.Store.stop, 'stop' ]
-
-                            // We pass an event-like argument to stay aligned
-                            // with the notification API.
-                            on(plugin).invoke(iface, this, 'plugin-unloaded')
-                        })
-
-                        return this
-                    },
-
-                    get items() {
-                        return collection.items
-                    },
-                }
-            }
-
-            _newGettersProxy() {
-                const collection = ObjectCollection()
-
-                return {
-                    add: (...objs) => {
-                        const props = []
-
-                        objs.forEach(obj => {
-                            const props = Graphene.fn.getOwnPropertyNamesAndSymbols(obj)
-
-                            props.forEach(prop => {
-                                const getter = obj[prop]
-
-                                // Don't do
-                                // const state = this.state
-                                // otherwise the getter receives an old state value.
-                                collection.items[prop] = (...args) => {
-                                    return getter(this.state, this.get, ...args)
-                                }
-                            })
-                        })
-
-                        return this
-                    },
-
-                    remove: (...objs) => {
-                        collection.remove(...objs)
-                        // Don't return the collection.remove() return values,
-                        // which of course is different from this.
-
-                        return this
-                    },
-
-                    get items() {
-                        return collection.items
-                    },
-                }
-            }
-
-            _processPluginImports(plugin, action) {
-                const imports = [ 'mutators', 'reducers', 'actions', 'getters', 'plugins' ]
-
-                imports.forEach(type => {
-                    // The getter interface for this collection type.
-                    const getter = Graphene.Store[type]
-
-                    if (! plugin[getter]) {
-                        // The plugin doesn't implement the get interface for
-                        // this type.
-                        return
-                    }
-
-                    const collection = this[type]
-                    const items      = plugin[getter]
-                    const args       = Array.isArray(items) ? items : [ items ]
-                    // An Object items is wrapped inside an array to be spread
-                    // as argument. An Array items is simply spread as argument.
-
-                    collection[action](...args)
-                })
-
-                return this
-            }
-
-            get listeners() {
-                const plugins   = this.plugins.items
-                const observers = this.observers.items
-                const targets   = plugins.concat(observers)
-
-                return targets
-            }
-
             _notifyEvent(...args) {
-                const listeners = this.listeners
-                const notify    = [ Graphene.Store.notify, 'notify' ]
-
                 // We notify the listener with these arguments:
                 // 1) the store instance
                 // 2) the change type which can be 'commit', 'action', 'back', 'forward', 'state'.
                 // For 'commit' and 'action'
                 // 3) the id, which can be a String, a Symbol or a Function.
                 // 4) all the other user supplied arguments.
-                on(listeners).invoke(notify, this, ...args)
+                const listeners = this.listeners.items()
+
+                for (const item of listeners) {
+                    const [ listener, ifaces ] = item
+
+                    if (ifaces.onStoreEvent) {
+                        ifaces.onStoreEvent(this, ...args)
+                    }
+                }
 
                 return this
             }
 
             _notifyStateChange(newState) {
-                const listeners      = this.listeners
-                const stateDidChange = [ Graphene.Store.stateDidChange, 'stateDidChange' ]
+                const listeners = this.listeners.items()
 
-                for (const listener of listeners) {
+                for (const item of listeners) {
                     if (newState !== this.state) {
                         // Whether the state has changed during the notification
                         // — due to a listener who called .commit() in turn —
                         // we abort current notification.
+                        // This should not happen because notifications are
+                        // dispatched as (macro) tasks which enqueue in the
+                        // (macro) tasks queue.
+                        const msg = 'Graphene.Store: a retro state notification happened but has been stopped.'
+
+                        Graphene.Loggern.warn(msg)
+
                         return false
                     }
 
+                    const [ listener, ifaces ] = item
                     // Listeners can call .commit() in turn, which can change the state.
                     // For this reason we must pass always the last state (this.state),
                     // not 'newState' or 'const curState = this.state'.
-                    on(listener).invoke(stateDidChange, this.state)
+                    if (ifaces.stateDidChange) {
+                        ifaces.stateDidChange(this.state)
+                    }
                 }
 
                 return true
             }
         }
 
-        Graphene.Store = Graphene.fn.newer(Graphene.StoreClass)
-
-        Graphene.Store.get            = Symbol('Graphene.Store.get()')
-        Graphene.Store.notify         = Symbol('Graphene.Store.notify()')
-        Graphene.Store.stateDidChange = Symbol('Graphene.Store.stateDidChange()')
-        Graphene.Store.start          = Symbol('Graphene.Store.start()')
-        Graphene.Store.stop           = Symbol('Graphene.Store.stop()')
-        Graphene.Store.mutators       = Symbol('Graphene.Store.mutators')
-        Graphene.Store.reducers       = Symbol('Graphene.Store.reducers')
-        Graphene.Store.actions        = Symbol('Graphene.Store.actions')
-        Graphene.Store.getters        = Symbol('Graphene.Store.getters')
-        Graphene.Store.plugins        = Symbol('Graphene.Store.plugins')
-
-        const ArrayCollection = function ArrayCollection(initial) {
-            if (! (this instanceof ArrayCollection)) {
-                return new ArrayCollection(initial)
+        function ListenersProxy(store) {
+            if (! (this instanceof ListenersProxy)) {
+                return new ListenersProxy(store)
             }
 
-            this.items = initial || []
+            this.store = store
+            this.collection = Graphene.Map()
         }
 
-        ArrayCollection.prototype.add = function add(...items) {
-            items.forEach(i => this.items.push(i))
+        ListenersProxy.prototype.add = function add(...items) {
+            for (const listener of items) {
+                const ifaces = {}
+                const onStoreEvent =
+                        listener[Graphene.Store.onEvent]
+                        || listener['onStoreEvent']
+                const stateDidChange =
+                        listener[Graphene.Store.stateDidChange]
+                        || listener['stateDidChange']
+                const debounceTime = 10
 
-            return this
-        }
-
-        ArrayCollection.prototype.remove = function remove(...items) {
-            items.forEach(i => {
-                const index = this.items.indexOf(i)
-
-                if (index < 0) {
-                    return
+                if (onStoreEvent) {
+                    ifaces.onStoreEvent = Lodash.debounce(
+                        onStoreEvent.bind(listener),
+                        debounceTime
+                    )
                 }
 
-                this.items.splice(index, 1)
-            })
+                if (stateDidChange) {
+                    ifaces.stateDidChange = Lodash.debounce(
+                        stateDidChange.bind(listener),
+                        debounceTime
+                    )
+                }
 
-            return this
-        }
-
-        const ObjectCollection = function ObjectCollection(initial) {
-            if (! (this instanceof ObjectCollection)) {
-                return new ObjectCollection(initial)
+                this.collection.put(listener, ifaces)
             }
 
-            this.items = initial || {}
+            return this
         }
 
-        ObjectCollection.prototype.add = function add(...objs) {
-            Object.assign(this.items, ...objs)
+        ListenersProxy.prototype.remove = function remove(...items) {
+            for (const listener of items) {
+                this.collection.del(listener)
+            }
 
             return this
         }
 
-        ObjectCollection.prototype.remove = function remove(...objs) {
-            objs.forEach(o => {
-                const props = Graphene.fn.getOwnPropertyNamesAndSymbols(o)
+        ListenersProxy.prototype.items = function items() {
+            return this.collection.entries()
+        }
 
-                props.forEach(prop => delete this.items[prop])
-            })
+        function PluginsProxy(store) {
+            if (! (this instanceof PluginsProxy)) {
+                return new PluginsProxy(store)
+            }
+
+            this.store = store
+            this.collection = ArraySet()
+            this.imports = [ 'mutators', 'reducers', 'actions', 'getters', 'plugins' ]
+        }
+
+        PluginsProxy.prototype.add = function add(...items) {
+            for (const plugin of items) {
+                const registered = this.collection.items().includes(plugin)
+
+                if (registered) {
+                    // Plugin is already registered.
+                    continue
+                }
+
+                // Plugin must be first added to stop eventually
+                // plugins processing recursion which otherwise,
+                // could lead to reprocess the same plugin again
+                // resulting in an infinite loop.
+                this.collection.add(plugin)
+                this.store.listeners.add(plugin)
+                this.processPlugin(plugin, 'add')
+
+                const iface = plugin[Graphene.Store.start] || plugin['start']
+                // We pass an event-like argument to stay aligned
+                // with the notification API.
+                if (iface) {
+                    iface.call(plugin, this.store, 'plugin-loaded')
+                }
+            }
 
             return this
+        }
+
+        PluginsProxy.prototype.remove = function remove(...items) {
+            for (const plugin of items) {
+                const registered = this.collection.items().includes(plugin)
+
+                if (! registered) {
+                    // Plugin is already unregistered.
+                    continue
+                }
+
+                this.collection.remove(plugin)
+                this.store.listeners.remove(plugin)
+                this.processPlugin(plugin, 'remove')
+
+                const iface = plugin[Graphene.Store.stop] || plugin['stop']
+                // We pass an event-like argument to stay aligned
+                // with the notification API.
+                if (iface) {
+                    iface.call(plugin, this.store, 'plugin-unloaded')
+                }
+            }
+
+            return this
+        }
+
+        PluginsProxy.prototype.items = function items() {
+            return this.collection.items()
+        }
+
+        PluginsProxy.prototype.processPlugin = function processPlugin(plugin, action) {
+            for (const type of this.imports) {
+                // The getter interface for this collection type.
+                const getter = Graphene.Store[type]
+
+                if (! plugin[getter]) {
+                    // The plugin doesn't implement the get interface for
+                    // this type.
+                    continue
+                }
+
+                const collection = this.store[type]
+                const items = plugin[getter]
+                const args = Array.isArray(items) ? items : [ items ]
+                // An Object items is wrapped inside an array to be spread
+                // as argument. An Array items is simply spread as argument.
+
+                // Action can be of type .add() or .remove().
+                collection[action](...args)
+            }
+
+            return this
+        }
+
+        function ObserversProxy(store) {
+            if (! (this instanceof ObserversProxy)) {
+                return new ObserversProxy(store)
+            }
+
+            this.store = store
+            this.collection = ArraySet()
+        }
+
+        ObserversProxy.prototype.add = function add(...items) {
+            this.collection.add(...items)
+            this.store.listeners.add(...items)
+
+            return this
+        }
+
+        ObserversProxy.prototype.remove = function remove(...items) {
+            this.collection.remove(...items)
+            this.store.listeners.remove(...items)
+
+            return this
+        }
+
+        ObserversProxy.prototype.items = function items() {
+            return this.collection.items()
+        }
+
+        function GettersProxy(store) {
+            if (! (this instanceof GettersProxy)) {
+                return new GettersProxy(store)
+            }
+
+            this.store = store
+            this.collection = ObjectSet()
+        }
+
+        GettersProxy.prototype.add = function add(...items) {
+            const props = []
+
+            for (const obj of items) {
+                const props = Graphene.fn.getOwnPropertyNamesAndSymbols(obj)
+
+                for (const prop of props) {
+                    const store = this.store
+                    const getter = obj[prop]
+                    const getterWrapper = function getterWrapper(...args) {
+                        const state = store.state // Last state available.
+                        const getters = store.get
+
+                        return getter(state, getters, ...args)
+                    }
+
+                    this.collection.add({ [prop]: getterWrapper })
+                }
+            }
+
+            return this
+        }
+
+        GettersProxy.prototype.remove = function remove(...items) {
+            this.collection.remove(...items)
+            // Don't return the collection.remove() return values,
+            // which of course is different from this.
+
+            return this
+        }
+
+        GettersProxy.prototype.items = function items() {
+            return this.collection.items()
+        }
+
+        Graphene.Store = Graphene.fn.newer(Graphene.StoreClass)
+
+        Graphene.Store.get = Symbol('Graphene.Store.get()')
+        Graphene.Store.onEvent = Symbol('Graphene.Store.onEvent()')
+        Graphene.Store.stateDidChange = Symbol('Graphene.Store.stateDidChange()')
+        Graphene.Store.start = Symbol('Graphene.Store.start()')
+        Graphene.Store.stop = Symbol('Graphene.Store.stop()')
+        Graphene.Store.mutators = Symbol('Graphene.Store.mutators')
+        Graphene.Store.reducers = Symbol('Graphene.Store.reducers')
+        Graphene.Store.actions = Symbol('Graphene.Store.actions')
+        Graphene.Store.getters = Symbol('Graphene.Store.getters')
+        Graphene.Store.plugins = Symbol('Graphene.Store.plugins')
+
+        const ArraySet = function ArraySet(items) {
+            if (! (this instanceof ArraySet)) {
+                return new ArraySet(items)
+            }
+
+            this._items = []
+
+            if (items) {
+                this.add(...items)
+            }
+        }
+
+        ArraySet.prototype.add = function add(...items) {
+            for (const it of items) {
+                if (! items.includes(it)) {
+                    this._items.push(it)
+                }
+            }
+
+            return this
+        }
+
+        ArraySet.prototype.remove = function remove(...items) {
+            for (const it of items) {
+                const index = this._items.indexOf(it)
+
+                if (index < 0) {
+                    continue
+                }
+
+                this._items.splice(index, 1)
+            }
+
+            return this
+        }
+
+        ArraySet.prototype.items = function items() {
+            return this._items
+        }
+
+        const ObjectSet = function ObjectSet(items) {
+            if (! (this instanceof ObjectSet)) {
+                return new ObjectSet(items)
+            }
+
+            this._items = {}
+
+            if (items) {
+                this.add(items)
+            }
+        }
+
+        ObjectSet.prototype.add = function add(...items) {
+            Object.assign(this._items, ...items)
+
+            return this
+        }
+
+        ObjectSet.prototype.remove = function remove(...items) {
+            for (const it of items) {
+                const props = Graphene.fn.getOwnPropertyNamesAndSymbols(it)
+
+                for (const prop of props) {
+                    delete this._items[prop]
+                }
+            }
+
+            return this
+        }
+
+        ObjectSet.prototype.items = function items() {
+            return this._items
         }
     })()
     // ]]>

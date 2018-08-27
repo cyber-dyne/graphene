@@ -45,7 +45,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 let newData
 
-                if (data === undefined) {
+                if (! data) {
                     // We need to create an empty data structure compatible
                     // with the change path.
                     const dataShouldBeArray = head[0] === '['
@@ -65,12 +65,12 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
             invokeOn(obj, thisBind) {
                 // This function accepts one object or an array of objects.
-                const objs = Lodash.flatten([ obj ])
+                const objs = Array.isArray(obj) ? obj : [ obj ]
 
                 return {
                     invoke(method, ...args) {
                         // This function accepts one method or an array of methods.
-                        const methods = Lodash.flatten([ method ])
+                        const methods = Array.isArray(method) ? method : [ method ]
                         const returns = Graphene.fn.crossInvoke(objs, methods, args, thisBind)
                         // In case the user requested to invoke the method
                         // on one object only, we unwrap the containing array
@@ -89,32 +89,27 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 // support Symbols but only objects' own property names.
                 // The fist implemented interface is executed and its return
                 // value is returned.
-                const returns = objs.map(obj => {
+                const returns = []
+
+                for (const obj of objs) {
                     for (const method of methods) {
                         // Lodash.invoke(obj, method, ...args)
                         // does the same but doesn't allow to change the binding context.
                         const fn = Lodash.get(obj, method)
 
-                        if (fn === undefined) {
+                        if (! fn) {
                             // The method is not implemented. We can continue.
                             continue
                         }
 
-                        if (thisBind === undefined) {
-                            // User has not requested to bind the method
-                            // to a different context. We invoke the object's
-                            // method bound to the default context (the owner object).
-                            return fn.apply(obj, args)
-                        }
+                        // User can request to bind the method to a different
+                        // context.
+                        const ctx = thisBind ? thisBind : obj
+                        const ret = fn.apply(ctx, args)
 
-                        // User has requested to bind the method to a different
-                        // context. We invoke the object's method bound to that
-                        // context (thisBind).
-                        return fn.apply(thisBind, args)
+                        returns.push(ret)
                     }
-
-                    // undefined otherwise.
-                })
+                }
 
                 return returns
             },
