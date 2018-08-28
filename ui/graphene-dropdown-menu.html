@@ -54,7 +54,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             #Filter {
                 /* <paper-input> */
                 padding: 0 var(--graphene-gutter-s);
-                background-color: var(--graphene-dropdown-menu-background-color, var(--graphene-primary-background, white));
 
                 --paper-input-container-input: {
                     padding: 5px 0;
@@ -75,8 +74,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             #EmptyItem {
                 cursor: pointer;
                 font-size: 0.9em;
-                color:            var(--graphene-dropdown-menu-color);
-                background-color: var(--graphene-dropdown-menu-background-color, var(--graphene-primary-background, white));
+                color: var(--graphene-dropdown-menu-color);
             }
 
             #List {
@@ -95,7 +93,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     font-size: 0.9em;
 
                     color: var(--graphene-primary-text-color, var(--paper-grey-700));
-                    background-color: var(--graphene-dropdown-menu-background-color, var(--graphene-primary-background, white));
 
                     @apply --graphene-dropdown-menu;
                 };
@@ -133,7 +130,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             #List > *[selected] {
                 font-weight: bold;
                 color: var(--paper-grey-800);
-                background-color: var(--graphene-primary-background, white);
 
                 @apply --graphene-dropdown-menu-selected;
             }
