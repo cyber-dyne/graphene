@@ -41,7 +41,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 justify-content: center;
                 align-items:     center;
 
-                transition: border-color .2s ease .2s;
+                transition: all .2s;
+                transition-delay: .2s;
             }
 
             :host([enabled]) #Marker {
@@ -49,7 +50,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 color:        var(--paper-grey-700);
             }
 
-            :host([valid]) #Marker {
+            :host([enabled][valid]) #Marker {
                 color: white;
             }
 
@@ -68,15 +69,15 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 background-color: var(--paper-grey-400);
 
-                transition:          transform;
-                transition-duration: .2s;
+                transition: all .2s;
             }
 
-            :host([enabled]:not([valid])) #Pulsar {
+            :host([enabled]) #Pulsar {
                 transform: scale(0);
             }
 
-            :host([valid]) #Pulsar {
+            :host([enabled][valid]) #Pulsar {
+                transform: scale(1);
                 background-color: #666;
 
                 animation: markercolor .4s ease .4s;
@@ -99,18 +100,17 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 width: calc(100% - 32px);
                 padding-left: var(--graphene-gutter-s);
 
+                filter: saturate(0%);
+                pointer-events: none;
+
                 @apply --graphene-stepper-step-content;
             }
 
             :host([enabled]) #Content {
-                @apply --graphene-stepper-step-content-enabled;
-            }
+                filter: initial;
+                pointer-events: initial;
 
-            :host(:not([enabled])) #Content {
-                filter: saturate(0%);
-                pointer-events: none;
-
-                @apply --graphene-stepper-step-content-disabled;
+                @apply --graphene-stepper-step-content--enabled;
             }
 
             @-webkit-keyframes markercolor {
