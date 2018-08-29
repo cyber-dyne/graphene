@@ -67,14 +67,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             #Filter iron-icon[prefix] {
                 --iron-icon: {
                     margin-right: var(--graphene-gutter-xs);
-                    color:        var(--paper-grey-500);
+                    color: var(--paper-grey-500);
                 };
-            }
-
-            #EmptyItem {
-                cursor: pointer;
-                font-size: 0.9em;
-                color: var(--graphene-dropdown-menu-color);
             }
 
             #List {
@@ -86,16 +80,19 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 */
 
                 cursor: pointer;
-
                 transition: all .2s;
 
                 --iron-list-items-container: {
                     font-size: 0.9em;
-
                     color: var(--graphene-primary-text-color, var(--paper-grey-700));
 
                     @apply --graphene-dropdown-menu;
                 };
+            }
+
+            #EmptyItem {
+                font-size: 0.9em;
+                cursor: pointer;
             }
 
             #EmptyItem,
@@ -105,13 +102,13 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 padding: 0 var(--graphene-gutter-s);
 
-                line-height:    2.2em;
+                line-height: 2.2em;
                 letter-spacing: -0.02em;
-                font-weight:    400;
+                font-weight: 400;
 
                 vertical-align: middle;
-                overflow:       hidden;
-                text-overflow:  ellipsis;
+                overflow: hidden;
+                text-overflow: ellipsis;
 
                 @apply --graphene-dropdown-menu-item;
             }
@@ -124,21 +121,21 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             #List > *:hover {
                 background-color: var(--paper-grey-200);
 
-                @apply --graphene-dropdown-menu-hover;
+                @apply --graphene-dropdown-menu-item--hover;
             }
 
             #List > *[selected] {
                 font-weight: bold;
                 color: var(--paper-grey-800);
 
-                @apply --graphene-dropdown-menu-selected;
+                @apply --graphene-dropdown-menu-item--selected;
             }
 
             #List > *:focus {
                 outline: none;
                 background-color: var(--paper-grey-300);
 
-                @apply --graphene-dropdown-menu-focus;
+                @apply --graphene-dropdown-menu-item--focus;
             }
         </style>
 
