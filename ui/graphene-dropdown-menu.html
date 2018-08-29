@@ -142,6 +142,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             }
         </style>
 
+        <!-- paper-dropdown-menu fires a 'selected-item-changed' event. -->
         <paper-dropdown-menu
             id="Menu"
             label="[[ label ]]"
@@ -151,7 +152,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             disabled="[[ disabled ]]"
             required="[[ required ]]"
             invalid="{{ invalid }}"
-            on-selected-item-changed="_stopEvent"
             on-opened-changed="_onMenuOpenedChanged"
         >
             <div id="Content" class="dropdown-content">
@@ -175,6 +175,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     &nbsp;
                 </div>
 
+                <!-- iron-list fires a 'selected-items-changed' event. -->
                 <!--
                 | iron-list doesn't support selecting an item through the binding
                 | but requires an imperative call of the method .selectItem().
@@ -182,12 +183,12 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 <iron-list
                     id="List"
                     items="[[ filteredItems ]]"
-                    on-selected-items-changed="_stopEvent"
+                    on-selected-changed="_stopEvent"
                 >
                     <template>
                         <div
                             tabindex$="[[ _tabIndex(item, index) ]]"
-                            selected$="[[ _selected(selectedItems, item, index, multi) ]]"
+                            selected$="[[ _isSelected(_selected, item, index, multi) ]]"
                             on-tap="_onItemTap"
                         >
                             [[ itemTitleFormatter(item, index, itemTitlePath) ]]
@@ -231,10 +232,10 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                                     return
                                 }
 
-                                const selectedItems = Array.isArray(selected)
+                                const selectedList = Array.isArray(selected)
                                     ? selected
                                     : [ selected ]
-                                const title = selectedItems.map(itemTitleFormatter).join(', ')
+                                const title = selectedList.map(itemTitleFormatter).join(', ')
 
                                 return title
                             }
@@ -288,9 +289,16 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         },
                     },
 
-                    selectedItems: {
+                    selected: {
                         type: Object,
                         notify: true,
+                    },
+
+                    _selected: {
+                        // Workaround for the iron-list having in its scope
+                        // an homonym 'selected' property for each rendered item.
+                        type: Object,
+                        computed: '_selectedComputer(selected)',
                     },
 
                     multi: {
@@ -363,8 +371,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     '_setItemsHeight(items, itemHeight, maxHeight)',
                     '_selectAuto(items, multi, autoSelect)',
                     '_resetAuto(items, autoReset, autoSelect, multi)',
-                    '_setTitle(selectedItems, titleFormatter)',
-                    '_validate(required, selectedItems)',
+                    '_setTitle(selected, titleFormatter)',
+                    '_validate(required, selected)',
                 ],
 
                 //// Lifecycle callbacks. //////////////////////////////////////
@@ -391,6 +399,10 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         : items // Optimization.
 
                     return filteredItems
+                },
+
+                _selectedComputer(selected) {
+                    return selected
                 },
 
                 //// Observers. ////////////////////////////////////////////////
@@ -443,8 +455,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     const autoSelected = items[0]
 
                     const isMultiSelected = multi
-                        && this.selectedItems
-                        && this.selectedItems[0] === autoSelected
+                        && this.selected
+                        && this.selected[0] === autoSelected
 
                     if (isMultiSelected) {
                         // Auto selection candidate is already selected. We
@@ -457,13 +469,13 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         return
                     }
 
-                    this.selectedItems = multi
+                    this.selected = multi
                         ? [ autoSelected ]
                         : autoSelected
                 },
 
                 _resetAuto(items, autoReset, autoSelect, multi) {
-                    // This method must not observe selectedItems, but only
+                    // This method must not observe selected items, but only
                     // acting when the items change.
                     if (Lodash.some(arguments, Lodash.isNil)) {
                         return
@@ -478,69 +490,67 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         return
                     }
 
-                    if (! this.selectedItems) {
+                    if (! this.selected) {
                         // Nothing to reset.
                         return
                     }
 
-                    if (multi && this.selectedItems.length === 0) {
+                    if (multi && this.selected.length === 0) {
                         // Nothing to reset.
                         return
                     }
 
                     if (multi) {
-                        const selectedItemsInItems = this.selectedItems.filter(it =>
+                        const selectedInItems = this.selected.filter(it =>
                             items.includes(it)
                         )
 
-                        if (selectedItemsInItems.length === this.selectedItems.length) {
+                        if (selectedInItems.length === this.selected.length) {
                             // All selected items are available in the items list.
                             // We have nothing to reset.
                             return
                         }
 
-                        if (selectedItemsInItems.length > 0) {
+                        if (selectedInItems.length > 0) {
                             // Some selected items are available in the items list.
                             // We fix the selected items.
-                            this.selectedItems = selectedItemsInItems
+                            this.selected = selectedInItems
 
                             return
                         }
                     }
                     else {
-                        const isSelectedItemInItems = items.includes(this.selectedItems)
+                        const isSelectedInItems = items.includes(this.selected)
 
-                        if (isSelectedItemInItems) {
+                        if (isSelectedInItems) {
                             return
                         }
                     }
 
-                    this.selectedItems = null
+                    this.selected = null
                 },
 
-                _setTitle(selectedItemsChange, titleFormatter) {
-                    // Don't do this because selectedItemsChange is null when
+                _setTitle(selected, titleFormatter) {
+                    // Don't do this because selectedChange is null when
                     // multi is false and the user deselects the item.
                     // if (Lodash.some(arguments, Lodash.isNil)) {
                     //     return
                     // }
 
-                    const selectedItems = this.selectedItems
-                    const title = titleFormatter(selectedItems)
+                    const title = titleFormatter(selected)
                     const target = this.$.Content
 
-                    if (! title) {
-                        this.fire('iron-deselect', undefined, { node: target })
+                    if (title) {
+                        const itemNode = this.create('span', { label: title })
 
-                        return
+                        this.fire('iron-select', { item: itemNode }, { node: target })
                     }
-
-                    const itemNode = this.create('span', { label: title })
-
-                    this.fire('iron-select', { item: itemNode }, { node: target })
+                    else {
+                        this.fire('iron-deselect', undefined, { node: target })
+                    }
                 },
 
-                _validate(required, selectedItems) {
+                _validate(required, selected) {
                     if (! required) {
                         return
                     }
@@ -551,7 +561,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 //// Listeners. ////////////////////////////////////////////////
 
                 _stopEvent(event) {
-                    // Internal events must not escaped from the component.
+                    // Internal events must not escape from the component.
                     event.stopPropagation()
                 },
 
@@ -617,19 +627,19 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     const indexAs = list.indexAs
                     const item = model[as]
                     const index = model[indexAs]
-                    const alreadySelected = this._selected(this.selectedItems, item, index, this.multi)
+                    const alreadySelected = this._isSelected(this.selected, item, index, this.multi)
 
                     if (this.multi) {
                         const dropdownMenu = this.$.Menu
                         const menuButton = dropdownMenu.$$('paper-menu-button')
-                        const selectedItems = this.selectedItems || []
+                        const selected = this.selected || []
 
                         // We prevent the dropdown from closing during a multi selection.
                         this.configurePaperMenuButton(menuButton, false)
 
-                        this.selectedItems = alreadySelected
-                            ? selectedItems.filter(it => it !== item)
-                            : selectedItems.concat([ item ])
+                        this.selected = alreadySelected
+                            ? selected.filter(it => it !== item)
+                            : selected.concat([ item ])
 
                         // We restore the normal behavior, in case the selection
                         // mode changes.
@@ -643,7 +653,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         return
                     }
 
-                    this.selectedItems = alreadySelected
+                    this.selected = alreadySelected
                         ? null
                         : item
                 },
@@ -667,7 +677,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                     menu.close()
 
-                    this.selectedItems = null
+                    this.selected = null
                 },
 
                 _onSearchValueChanged(event, detail) {
@@ -682,7 +692,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 //// Public APIs. //////////////////////////////////////////////
 
                 reset() {
-                    this.selectedItems = null
+                    this.selected = null
                 },
 
                 validate() {
@@ -706,15 +716,15 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     return 0
                 },
 
-                _selected(selectedItems, item, index, multi) {
-                    if (! selectedItems) {
+                _isSelected(selected, item, index, multi) {
+                    if (! selected) {
                         // Optimization.
                         return false
                     }
 
                     return multi
-                        ? selectedItems.includes(item)
-                        : selectedItems === item
+                        ? selected.includes(item)
+                        : selected === item
                 },
 
                 _doesMatch(item, query) {
