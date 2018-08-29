@@ -369,7 +369,8 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     '_selectAuto(items, multi, autoSelect)',
                     '_resetAuto(items, autoReset, autoSelect, multi)',
                     '_setTitle(selected, titleFormatter)',
-                    '_validate(required, selected)',
+                    '_validate(required)', // We must validate even when 'selected' is undefined.
+                    '_validate(selected)',
                 ],
 
                 //// Lifecycle callbacks. //////////////////////////////////////
@@ -547,11 +548,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     }
                 },
 
-                _validate(required, selected) {
-                    if (! required) {
-                        return
-                    }
-
+                _validate(requiredOrSelectedChanged) {
                     this.validate()
                 },
 
