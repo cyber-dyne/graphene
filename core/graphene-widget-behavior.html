@@ -21,11 +21,10 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
         /** @polymerBehavior */
         Graphene.WidgetBehaviorImpl = {
-            properties: {
-            },
-
             observers: [
-                '_fireStepperStepLifecycleChangedEvent(enabled, valid, isAttached)',
+                // An undefined property must not stop the other from being fired.
+                '_fireStepperStepLifecycleChangedEvent(enabled, isAttached)',
+                '_fireStepperStepLifecycleChangedEvent(valid, isAttached)',
             ],
 
             //// Lifecycle callbacks. //////////////////////////////////////
@@ -34,16 +33,15 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
             //// Observers. ////////////////////////////////////////////////
 
-            _fireStepperStepLifecycleChangedEvent(enabled, valid, isAttached) {
-                if (isAttached !== true) {
+            _fireStepperStepLifecycleChangedEvent(somethingChanged, isAttached) {
+                if (! isAttached) {
                     // We must be attached to fire the event.
                     return
                 }
 
-                const eventDetail = {
-                    enabled: enabled,
-                    valid:   valid,
-                }
+                const enabled = this.enabled
+                const valid = this.valid
+                const eventDetail = { enabled, valid }
 
                 this.fire('graphene-stepper-step-lifecycle-changed', eventDetail)
             },

@@ -181,6 +181,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     id="List"
                     items="[[ filteredItems ]]"
                     on-selected-changed="_stopEvent"
+                    max-physical-count="[[ maxPhysicalCount ]]"
                 >
                     <template>
                         <div
@@ -361,6 +362,11 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                     halign: {
                         type: String,
                         value: 'left',
+                    },
+
+                    maxPhysicalCount: {
+                        type: Number,
+                        value: 100,
                     },
                 },
 
@@ -690,10 +696,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 },
 
                 validate() {
-                    const menu = this.$.Menu
-                    const valid = menu.validate()
-
-                    return valid
+                    return this.$.Menu.validate()
                 },
 
                 updateSize() {
