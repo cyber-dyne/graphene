@@ -14,13 +14,6 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
     ;(function (undefined) {
         'use strict'
 
-        const { get } = Lodash
-
-        const reCache = {
-            startBrace: /\(/g,
-            endBrace: /\)/g,
-        }
-
         /** @polymerBehavior */
         Graphene.StoreBehavior = {
             properties: {
@@ -310,6 +303,14 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 return absMutations
             },
+        }
+
+        // Placing this code on top breaks the Polymer linter.
+        const { get } = Lodash
+
+        const reCache = {
+            startBrace: /\(/g,
+            endBrace: /\)/g,
         }
     })()
     // ]]>

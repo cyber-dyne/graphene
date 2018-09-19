@@ -14,7 +14,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
     ;(function (undefined) {
         'use strict'
 
-        /** @polymerBehavior */
+        /** @polymerBehavior Graphene.StoreModelBehavior */
         Graphene.StoreModelBehaviorImpl = {
             properties: {
                 model: {
@@ -182,7 +182,10 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
         }
 
         /** @polymerBehavior */
-        Graphene.StoreModelBehavior = [ Graphene.StoreBehavior, Graphene.StoreModelBehaviorImpl ]
+        Graphene.StoreModelBehavior = [
+            Graphene.StoreBehavior,
+            Graphene.StoreModelBehaviorImpl,
+        ]
     })()
     // ]]>
 </script>

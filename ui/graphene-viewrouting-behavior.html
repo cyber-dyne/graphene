@@ -13,7 +13,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
     ;(function (undefined) {
         'use strict'
 
-        /** @polymerBehavior */
+        /** @polymerBehavior Graphene.ViewRoutingBehavior */
         Graphene.ViewRoutingBehaviorImpl = {
             properties: {
                 viewRoute: {
@@ -67,7 +67,10 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
         }
 
         /** @polymerBehavior */
-        Graphene.ViewRoutingBehavior = [ Graphene.RoutingBehavior, Graphene.ViewRoutingBehaviorImpl ]
+        Graphene.ViewRoutingBehavior = [
+            Graphene.RoutingBehavior,
+            Graphene.ViewRoutingBehaviorImpl,
+        ]
     })()
     // ]]>
 </script>

@@ -18,7 +18,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
     ;(function (undefined) {
         'use strict'
 
-        /** @polymerBehavior */
+        /** @polymerBehavior Graphene.ViewsBehavior */
         Graphene.ViewsBehaviorImpl = {
             properties: {
                 // Views can be in the form of an array or an object:
@@ -363,7 +363,11 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
         }
 
         /** @polymerBehavior */
-        Graphene.ViewsBehavior = [ Graphene.ElementLifecycleBehavior, Graphene.RoutingBehavior, Graphene.ViewsBehaviorImpl ]
+        Graphene.ViewsBehavior = [
+            Graphene.ElementLifecycleBehavior,
+            Graphene.RoutingBehavior,
+            Graphene.ViewsBehaviorImpl,
+        ]
     })()
     // ]]>
 </script>

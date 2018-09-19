@@ -29,7 +29,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
             document.body.appendChild(appLocation)
         }
 
-        /** @polymerBehavior */
+        /** @polymerBehavior Graphene.RoutingBehavior */
         Graphene.RoutingBehaviorImpl = {
             properties: {
                 windowElement: {
@@ -153,7 +153,10 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
         }
 
         /** @polymerBehavior */
-        Graphene.RoutingBehavior = [ Graphene.ElementLifecycleBehavior, Graphene.RoutingBehaviorImpl ]
+        Graphene.RoutingBehavior = [
+            Graphene.ElementLifecycleBehavior,
+            Graphene.RoutingBehaviorImpl,
+        ]
     })()
     // ]]>
 </script>
