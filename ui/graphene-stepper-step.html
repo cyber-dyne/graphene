@@ -163,6 +163,11 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                         notify: true,
                         reflectToAttribute: true,
                     },
+
+                    debounceTime: {
+                        type: Number,
+                        value: 300,
+                    },
                 },
 
                 listeners: {
@@ -178,8 +183,17 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 //// Listeners. ////////////////////////////////////////////////
 
                 _grapheneStepperStepLifecycleChangedListener(event, lifecycle) {
-                    this.enabled = lifecycle.enabled
-                    this.valid   = lifecycle.valid
+                    // We debounce allowing a smooth animation.
+                    this.debounce(
+                        '_grapheneStepperStepLifecycleChangedListener(enabled)',
+                        () => this.enabled = lifecycle.enabled,
+                        this.debounceTime
+                    )
+                    this.debounce(
+                        '_grapheneStepperStepLifecycleChangedListener(valid)',
+                        () => this.valid = lifecycle.valid,
+                        this.debounceTime
+                    )
                 },
 
                 //// Public APIs. //////////////////////////////////////////////
