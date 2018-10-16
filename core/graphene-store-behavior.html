@@ -69,6 +69,11 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 storeOpsQueue: {
                     type: Array,
                 },
+
+                bindChangedDebounce: {
+                    type: Number,
+                    value: 100,
+                },
             },
 
             observers: [
@@ -235,7 +240,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 }
 
                 const debounceId = `_onBindChanged(${path})`
-                const debounceTime = 100
+                const debounceTime = this.bindChangedDebounce
                 const debounceFn = () => this.mutate(path, value)
 
                 // We defer allowing a smooth animation.
