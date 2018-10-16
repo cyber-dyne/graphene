@@ -98,13 +98,9 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 };
             }
 
-            #EmptyItem {
-                font-size: 0.9em;
-                cursor: pointer;
-            }
+            .MenuItem {
+                display: inline-block;  /* For vertical-align. */
 
-            #EmptyItem,
-            #List > * {
                 user-select: none;
                 -webkit-user-select: none;
 
@@ -121,25 +117,25 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 @apply --graphene-dropdown-menu-item;
             }
 
-            #List > * {
-                display: inline-block;  /* For vertical-align. */
+            #EmptyItem {
+                font-size: 0.9em;
+                cursor: pointer;
             }
 
-            #EmptyItem:hover,
-            #List > *:hover {
+            .MenuItem:hover {
                 background-color: var(--paper-grey-200);
 
                 @apply --graphene-dropdown-menu-item--hover;
             }
 
-            #List > *[selected] {
+            .MenuItem[selected] {
                 font-weight: bold;
                 color: var(--paper-grey-800);
 
                 @apply --graphene-dropdown-menu-item--selected;
             }
 
-            #List > *:focus {
+            .MenuItem:focus {
                 outline: none;
                 background-color: var(--paper-grey-300);
 
@@ -174,6 +170,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
 
                 <div
                     id="EmptyItem"
+                    class="MenuItem"
                     hidden$="[[ ! emptyItem ]]"
                     on-tap="_onEmptyItemTap"
                 >
@@ -193,6 +190,7 @@ The complete set of contributors may be found at https://github.com/cyber-dyne/g
                 >
                     <template>
                         <div
+                            class="MenuItem"
                             tabindex$="[[ _tabIndex(item, index) ]]"
                             selected$="[[ _isSelected(_selected, item, index, multi) ]]"
                             on-tap="_onItemTap"
